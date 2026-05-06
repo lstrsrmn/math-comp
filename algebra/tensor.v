@@ -8,29 +8,38 @@ From Corelib Require Import ssreflect.
 (******************************************************************************)
 (* For tensors we define:                                                     *)
 (*       'T[R]_(u_, d_) == the type of tensors with elements of type R,       *)
-(*       'T_(u_, d_)       contravariant dimensions u_, and covariant         *)
-(*                         dimensions d_, where u_ and d_ are finite          *)
-(*                         functions from ordinals to positive numbers        *)
-(*                         ({posnum nat} ^ k and {posnum nat} ^ l resp.)      *)
-(*                         The [R] is optional and can usually be omitted.    *)
-(* 'nT[R]_(u_), 'nT_(u_) == purely contravariant tensors (no covariant dims)  *)
-(* 'oT[R]_(d_), 'oT_(d_) == purely covariant tensors (no contravariant dims)  *)
+(*       'T_(u_, d_)       contravariant dimensions u_ and covariant          *)
+(*                         dimensions d_; u_ and d_ are tuples of             *)
+(*                         {posnum nat} (k.-tuple and l.-tuple resp.),        *)
+(*                         coerced automatically to {posnum nat} ^ k and      *)
+(*                         {posnum nat} ^ l finfuns                           *)
+(*                         The [R] is optional and can usually be omitted     *)
+(* 'T[R]_[u1 :: .. :: uk ; d1 :: .. :: dl] ==                                 *)
+(*                         shorthand parsing notation for                     *)
+(*                         'T[R]_([tuple of u1%:posnat :: .. :: uk%:posnat],  *)
+(*                                [tuple of d1%:posnat :: .. :: dl%:posnat]); *)
+(*                         e.g. 'T[R]_[2 :: 3 ; 4] for a tensor with          *)
+(*                         contravariant dims (2, 3) and covariant dim (4)    *)
+(* 'nT[R]_(u_), 'nT_(u_) == purely contravariant tensors (no covariant dims), *)
+(*                          i.e. 'T[R]_(u_, [tuple])                          *)
+(* 'oT[R]_(d_), 'oT_(d_) == purely covariant tensors (no contravariant dims), *)
+(*                          i.e. 'T[R]_([tuple], d_)                          *)
 (*                  t^^i == the tensor obtained by fixing the first           *)
 (*                          contravariant dimension of t to i                 *)
 (*                  t`_i == the tensor obtained by fixing the first           *)
 (*                          covariant dimension of t to i                     *)
 (* \tensor^^(i < n) Expr(i) ==                                                *)
-(*                         the 'T_(n :: _, _) tensor t such that              *)
+(*                         the 'T_([tuple of n :: _], _) tensor t such that   *)
 (*                         t^^i = Expr(i) with i : 'I_n, the < n bound can    *)
 (*                         usually be omitted                                 *)
 (* \tensor`_(j < n) Expr(j) ==                                                *)
-(*                         the 'T_(_, n :: _) tensor t such that              *)
+(*                         the 'T_(_, [tuple of n :: _]) tensor t such that   *)
 (*                         t`_j = Expr(j) with j : 'I_n, the < n bound can    *)
 (*                         usually be omitted                                 *)
 (*            const_t v == the constant tensor whose entries are all v        *)
 (*                         (dimensions are inferred from context)             *)
 (*               t.[::] == the value of the single entry in a                 *)
-(*                         tensor t : 'T_([::], [::])                         *)
+(*                         tensor t : 'T_([tuple], [tuple])                   *)
 (*         t^^=i, t`_=i == variants of the indexing operations equivalent to  *)
 (*                         (t^^i).[::], (t`_i).[::], useful for indexing the  *)
 (*                         final dimensions of tensors                        *)
@@ -49,11 +58,6 @@ From Corelib Require Import ssreflect.
 (* ring instances where the underlying type satisfies that instance.          *)
 (* NOTE: Ring multiplication ( *%R ) is the Hadamard (element-wise) product.  *)
 (* Proper tensor product forms a bilinear structure.                          *)
-(*                                                                            *)
-(* Dimension notation:                                                        *)
-(*  [dims n1; ..; nk] == posnum nat tuple from nat literals (only parsing),   *)
-(*                        e.g. 'T[R]_([dims 2; 3], [dims 4])                  *)
-(*           [dims]    == empty dimension tuple (0.-tuple {posnum nat})       *)
 (*                                                                            *)
 (* Tensor operations:                                                         *)
 (* t *h u == Hadamard product of t and u (element-wise multiplication),       *)
@@ -127,19 +131,9 @@ Reserved Notation "x *t y"
 (* Coercion from tuples to finfun: allows writing tensor dimensions as tuples *)
 Coercion finfun_of_tuple : tuple_of >-> finfun_of.
 
-(* Shorthand notation for posnum nat tuples used as tensor dimensions.
-   These are only parsing: goals will display the underlying finfun form.
-   Requires ring_scope for %:posnat elaboration. *)
-Notation "[dims]" := ([tuple] : 0.-tuple {posnum nat}) (only parsing).
 Local Open Scope ring_scope.
-Notation "[dims x ; .. ; y ]" :=
-  [tuple of x%:posnat :: .. [:: y%:posnat] ..] (only parsing).
 
 Section TensorDef.
-
-Definition tensor_nil_f := [ffun i : 'I_0 => 1%:posnat]%R.
-Definition fcons {k : nat} {T : Type} (x : T) (f : 'I_k -> T) : T ^ k.+1 :=
-  [ffun i => oapp f x (unlift ord0 i)].
 
 Context {k l : nat} (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l) (K : Type).
 
@@ -153,11 +147,14 @@ HB.instance Definition _ := [isNew for tensor_val].
 End TensorDef.
 
 Notation "''T[' R ]_ ( u_ , d_ )" := (tensor u_ d_ R) (only parsing).
-Notation "''T_' ( u_ , d_ )" := 'T[_]_(u_, d_).
-Notation "''nT[' R ]_ ( u_ )" := 'T[R]_(u_, tensor_nil_f) (only parsing).
-Notation "''oT[' R ]_ ( d_ )" := 'T[R]_(tensor_nil_f, d_) (only parsing).
-Notation "''oT_' ( d_ )" := 'oT[_]_(d_).
-Notation "''nT_' ( u_ )" := 'nT[_]_(u_).
+Notation "''T[' R ]_ [ u1 :: .. :: uk ; d1 :: .. :: dl ]"
+  := (tensor [tuple of u1%:posnat :: .. [:: uk%:posnat] ..]
+             [tuple of d1%:posnat :: .. [:: dl%:posnat] ..] R) (only parsing).
+Notation "''T_' ( u_ , d_ )" := (tensor u_ d_ _).
+Notation "''nT[' R ]_ ( u_ )" := 'T[R]_( u_ , [tuple] ) (only parsing).
+Notation "''oT[' R ]_ ( d_ )" := 'T[R]_( [tuple] , d_ ) (only parsing).
+Notation "''oT_' ( d_ )" := (tensor [tuple] d_ _).
+Notation "''nT_' ( u_ )" := (tensor u_ [tuple] _).
 
 Import Algebra GRing.
 
@@ -357,7 +354,7 @@ Section NilTensor.
 
 Context (R : Type).
 
-Lemma prod_nil : 1 = \prod_(i < 0) (tensor_nil_f i)%:num%R.
+Lemma prod_nil : 1%N = \prod_(i < 0) (([tuple] : 0.-tuple {posnum nat}) i)%:num.
 Proof. by rewrite big_ord0. Qed.
 
 Lemma ord_prod_nil : all_equal_to (cast_ord prod_nil ord0).
@@ -366,7 +363,7 @@ case=> [[?|n n_ord]]; apply: val_inj=>//=.
 by move: n_ord; rewrite -prod_nil.
 Qed.
 
-Definition tensor_nil (t : @tensor 0 0 tensor_nil_f tensor_nil_f R) : R := 
+Definition tensor_nil (t : 'T[R]_([tuple], [tuple])) : R :=
   \val t (cast_ord prod_nil ord0) (cast_ord prod_nil ord0).
 
 Definition const_tK : cancel const_t tensor_nil.
@@ -433,7 +430,7 @@ Lemma tensor_nilV {R : unitRingType} t
   : (t^-1).[::] = t.[::]^-1 :> R.
 Proof.
 rewrite /tensor_nil {1}/GRing.inv/=/invt.
-case (t \in @unitt _ _ tensor_nil_f tensor_nil_f R) eqn:t_unit; rewrite t_unit.
+case (t \in @unitt _ _ [tuple] [tuple] R) eqn:t_unit; rewrite t_unit.
   by rewrite mxE.
 apply/esym/invr_out; move: t_unit=> /negbT /forallP not_all_unit.
 apply/negP=> ?; apply: not_all_unit=> ij.
@@ -547,16 +544,15 @@ Section IndexTensorConsBij.
 
 Local Open Scope ring_scope.
 
-Context (u : {posnum nat}) {k : nat} (u_ : {posnum nat} ^ k).
+Context (u : {posnum nat}) {k : nat} (u_ : k.-tuple {posnum nat}).
 
-Local Notation u_cons := ([ffun i : 'I_k.+1 =>
-  if unlift ord0 i is Some j then u_ j else u] : {posnum nat} ^ k.+1).
+Local Notation u_cons := [tuple of u :: u_].
 
 Lemma tensormx_cast : #|{:'I_u%:num * 'I_(\prod_(i < k) (u_ i)%:num)}|
                         = \prod_(i < k.+1) (u_cons i)%:num.
 Proof.
-rewrite card_prod !card_ord big_ord_recl ffunE/= unlift_none.
-by congr (_ * _); apply: eq_bigr => i _; rewrite ffunE liftK.
+rewrite card_prod !card_ord big_ord_recl ffunE [tnth _ _]tnth0.
+by congr (_ * _); apply: eq_bigr => i _; rewrite !ffunE tnthS.
 Qed.
 
 Definition tensormx_index (ij : 'I_u%:num * 'I_\prod_(i < k) (u_ i)%:num)
@@ -578,9 +574,9 @@ End IndexTensorConsBij.
 Local Open Scope ring_scope.
 
 Context (R : Type) (u d : {posnum nat}) (k l : nat).
-Context (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l).
-Local Notation u_cons := (fcons u u_).
-Local Notation d_cons := (fcons d d_).
+Context (u_ : k.-tuple {posnum nat}) (d_ : l.-tuple {posnum nat}).
+Local Notation u_cons := [tuple of u :: u_].
+Local Notation d_cons := [tuple of d :: d_].
 
 Definition nindex (t : 'T[R]_(u_cons, d_)) (i : 'I_u%:num) : 'T[R]_(u_, d_) :=
   Tensor (\matrix_(i', j) (\val t) (tensormx_index (i, i')) j).
@@ -620,8 +616,8 @@ Section TensorIndexTheory.
 Context (R : Type).
 
 Lemma ntensorP (u : {posnum nat}) (k l : nat)
-    (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l)
-    (t v : 'T[R]_(fcons u u_, d_)) 
+    (u_ : k.-tuple {posnum nat}) (d_ : l.-tuple {posnum nat})
+    (t v : 'T[R]_([tuple of u :: u_], d_))
   : t = v <-> forall i, t^^i = v^^i.
 Proof.
 split=> [->//|eq_i]; apply/val_inj/matrixP=> i j.
@@ -630,8 +626,8 @@ by rewrite !mxE -surjective_pairing tensormx_unindexK.
 Qed.
 
 Lemma otensorP (d : {posnum nat}) (k l : nat)
-    (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l)
-    (t v : 'T[R]_(u_, fcons d d_))
+    (u_ : k.-tuple {posnum nat}) (d_ : l.-tuple {posnum nat})
+    (t v : 'T[R]_(u_, [tuple of d :: d_]))
   : t = v <-> forall i, t`_i = v`_i.
 Proof.
 split=> [->//|eq_i]; apply/val_inj/matrixP=> i j.
@@ -639,14 +635,14 @@ move: (eq_i (tensormx_unindex j).1)=> [/matrixP] /(_ i (tensormx_unindex j).2).
 by rewrite !mxE -surjective_pairing tensormx_unindexK.
 Qed.
 
-Lemma ntensor_eqP (u : {posnum nat}) (t v : 'nT[R]_(fcons u tensor_nil_f))
+Lemma ntensor_eqP (u : {posnum nat}) (t v : 'nT[R]_([tuple u]))
   : t = v <-> forall i, t^^=i = v^^=i.
 Proof.
 split=> [->//|eq_i]; apply/ntensorP=> i.
 by move: (eq_i i)=> /tensor_nil_eqP.
 Qed.
 
-Lemma otensor_eqP (d : {posnum nat}) (t v : 'oT[R]_(fcons d tensor_nil_f))
+Lemma otensor_eqP (d : {posnum nat}) (t v : 'oT[R]_([tuple d]))
   : t = v <-> forall i, t`_=i = v`_=i.
 Proof.
 split=> [->//|eq_i]; apply/otensorP=> i.
@@ -656,13 +652,13 @@ Qed.
 (* Note: there seems to be some conflict between ring scope and the `_ notation *)
 
 Lemma nstackE {u : {posnum nat}} {k l}
-    {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
+    {u_ : k.-tuple {posnum nat}} {d_ : l.-tuple {posnum nat}}
     (f : 'I_u%:num%R -> 'T[R]_(u_, d_)) i
   : (nstack f)^^i = f i.
 Proof. by apply/val_inj/matrixP => x y; rewrite !mxE tensormx_indexK. Qed.
 
 Lemma ostackE {d : {posnum nat}} {k l}
-    {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
+    {u_ : k.-tuple {posnum nat}} {d_ : l.-tuple {posnum nat}}
     (f : 'I_d%:num%R -> 'T[R]_(u_, d_)) i
   : (ostack f)`_i = f i.
 Proof. by apply/val_inj/matrixP => x y; rewrite !mxE tensormx_indexK. Qed.
@@ -680,14 +676,14 @@ End TensorIndexTheory.
 
 Section TensorTuple.
 
-Context {R : Type} (x : {posnum nat}) (k l : nat).
-Context (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l).
+Context {R : Type} {x : {posnum nat}} (k l : nat).
+Context (u_ : k.-tuple {posnum nat}) (d_ : l.-tuple {posnum nat}).
 
 Definition ntensor_of_tuple (t : x%:num%R.-tuple R)
-  : 'nT[R]_(fcons x tensor_nil_f) := \tensor^^i => (tnth t i).
+  : 'nT[R]_([tuple x]) := \tensor^^i => (tnth t i).
 
 Definition otensor_of_tuple (t : x%:num%R.-tuple R)
-  : 'oT[R]_(fcons x tensor_nil_f) := \tensor`_i => (tnth t i).
+  : 'oT[R]_([tuple x]) := \tensor`_i => (tnth t i).
 
 Lemma ntensor_of_tupleE t i : (ntensor_of_tuple t)^^=i = tnth t i.
 Proof. exact: nstack_eqE. Qed.
@@ -725,7 +721,7 @@ Section TensorMatrix.
 Context {R : Type} {n m : {posnum nat}}.
 
 Definition tensor_of_matrix (M : 'M_(_, _)) :
-  'T[R]_(fcons n tensor_nil_f, fcons m tensor_nil_f) :=
+  'T[R]_([tuple n], [tuple m]) :=
     \tensor^^i \tensor`_j => M i j.
 
 Definition matrix_of_tensor t : 'M[R]_(n%:num%R, m%:num%R) :=
