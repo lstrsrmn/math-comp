@@ -131,7 +131,11 @@ Reserved Notation "x *t y"
 (* Coercion from tuples to finfun: allows writing tensor dimensions as tuples *)
 Coercion finfun_of_tuple : tuple_of >-> finfun_of.
 
+Declare Scope tensor_scope.
+Delimit Scope tensor_scope with tnsr.
+
 Local Open Scope ring_scope.
+Local Open Scope tensor_scope.
 
 Section TensorDef.
 
@@ -152,7 +156,13 @@ Notation "''T[' R ]_ [ u1 :: .. :: uk ; d1 :: .. :: dl ]"
              [tuple of d1%:posnat :: .. [:: dl%:posnat] ..] R) (only parsing).
 Notation "''T_' ( u_ , d_ )" := (tensor u_ d_ _).
 Notation "''nT[' R ]_ ( u_ )" := 'T[R]_( u_ , [tuple] ) (only parsing).
+Notation "''nT[' R ]_ [ u1 , .. , uk ]"
+  := 'T[R]_( [tuple of u1%:posnat :: .. [:: uk%:posnat] ..] , [tuple] )
+  (only parsing).
 Notation "''oT[' R ]_ ( d_ )" := 'T[R]_( [tuple] , d_ ) (only parsing).
+Notation "''oT[' R ]_ [ d1 , .. , dl ]"
+  := 'T[R]_( [tuple] , [tuple of d1%:posnat :: .. [:: dl%:posnat] ..] )
+  (only parsing).
 Notation "''oT_' ( d_ )" := (tensor [tuple] d_ _).
 Notation "''nT_' ( u_ )" := (tensor u_ [tuple] _).
 
@@ -192,51 +202,13 @@ HB.instance Definition _ (R : pzRingType) :=
 End SubtypeInstances.
 
 
-Section TensorPOrder.
-
-Import Order.POrderTheory.
-Open Scope order_scope.
-
-Context (o : Order.disp_t) (R : porderType o).
-Context {l k : nat} (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l).
-
-Definition le_t (t u : 'T[R]_(u_, d_)) := 
-  [forall ij, (\val t ij.1 ij.2) <= (\val u ij.1 ij.2)].
-
-Definition lt_t (t u : 'T[R]_(u_, d_)) := (u != t) && le_t t u.
-
-Let lt_t_def : forall x y, lt_t x y = (y != x) && le_t x y.
-Proof. by []. Qed.
-
-Let le_t_refl : reflexive (le_t).
-Proof. by move=> x; exact /forallP. Qed.
-
-Let le_t_anti : antisymmetric (le_t).
-Proof.
-move=> x y /andP[/forallP le_t_xy /forallP le_t_yx].
-apply/val_inj/matrixP=> i j; apply /le_anti/andP.
-exact (conj (le_t_xy (i, j)) (le_t_yx (i, j))).
-Qed.
-
-Let le_t_trans : transitive (le_t).
-Proof.
-move=> x y z /forallP le_t_yx /forallP le_t_xz.
-apply/forallP=> ij; exact /le_trans.
-Qed.
-
-HB.instance Definition _ := Order.isPOrder.Build
-  o 'T[R]_(u_, d_) lt_t_def le_t_refl le_t_anti le_t_trans.
-
-End TensorPOrder.
-
-
 Definition const_t {R k l} {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
   (v : R) : 'T[R]_(u_, d_) := Tensor (const_mx v).
 
 
 Section TensorRing.
 
-Open Scope ring_scope.
+Local Open Scope ring_scope.
 Import GRing.Theory.
 
 Context {l k : nat} (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l).
@@ -377,7 +349,7 @@ Qed.
 End NilTensor.
 
 
-Notation "t .[::]" := (tensor_nil t).
+Notation "t .[::]" := (tensor_nil t) : tensor_scope.
 
 
 Section NilTensorTheory.
@@ -387,28 +359,7 @@ Proof.
 by split=> [?|->//]; apply/val_inj/matrixP=> i j; rewrite !ord_prod_nil.
 Qed.
 
-Open Scope order_scope.
-Import Order.POrderTheory.
-
-Lemma tensor_nil_leP {d : Order.disp_t} {R : porderType d} t u
-  : t.[::] <= u.[::] :> R <-> t <= u.
-Proof.
-split=> [?|/forallP/(_ (cast_ord prod_nil ord0, cast_ord prod_nil ord0))//].
-by apply/forallP=> [[] i j]; rewrite !ord_prod_nil.
-Qed.
-
-Lemma tensor_nil_ltP {d : Order.disp_t} {R : porderType d} t u
-  : t.[::] < u.[::] :> R <-> t < u.
-Proof.
-rewrite !lt_def; split=> /andP [u_neq_t t_le_u]; apply/andP; split.
-      by apply/contra_neq; first apply (tensor_nil_eqP u t).
-    by apply/tensor_nil_leP.
-  by apply/contra_neq; first apply (tensor_nil_eqP u t).
-by apply/tensor_nil_leP.
-Qed.
-
-Close Scope order_scope.
-Open Scope ring_scope.
+Local Open Scope ring_scope.
 Import GRing.Theory.
 
 Lemma tensor_nilD {R : nmodType} t u
@@ -444,7 +395,7 @@ Section ConstTensorTheory.
 
 Context {l k : nat} (u_ : {posnum nat} ^ k) (d_ : {posnum nat} ^ l).
 
-Open Scope ring_scope.
+Local Open Scope ring_scope.
 Import GRing.Theory.
 
 Lemma const_tD {R : nmodType} x y
@@ -594,23 +545,23 @@ Definition ostack (f : 'I_d%:num -> 'T[R]_(u_, d_)) : 'T[R]_(u_, d_cons) :=
 
 End IndexTensor.
 
-Notation "t ^^ i" := (nindex t i).
-Notation "t `_ i" := (oindex t i).
-Notation "t ^^= i" := ((t^^i).[::]).
-Notation "t `_= i" := ((t`_i).[::]).
+Notation "t ^^ i" := (nindex t i) : tensor_scope.
+Notation "t `_ i" := (oindex t i) : tensor_scope.
+Notation "t ^^= i" := ((t^^i).[::]) : tensor_scope.
+Notation "t `_= i" := ((t`_i).[::]) : tensor_scope.
 
-Notation "\tensor ^^ ( i < u ) E" := (nstack (fun i : 'I_u => E)) 
-  (only parsing).
-Notation "\tensor `_ ( i < d ) E" := (ostack (fun i : 'I_d => E)) 
-  (only parsing).
-Notation "\tensor ^^ i E" := (\tensor^^(i < _) E).
-Notation "\tensor `_ i E" := (\tensor`_(i < _) E).
-Notation "\tensor ^^ ( i < u ) => E" := (\tensor^^(i < u) const_t E) 
-  (only parsing).
-Notation "\tensor `_ ( i < d ) => E" := (\tensor`_(i < d) const_t E) 
-  (only parsing).
-Notation "\tensor ^^ i => E" := (\tensor^^i const_t E).
-Notation "\tensor `_ i => E" := (\tensor`_i const_t E).
+Notation "\tensor ^^ ( i < u ) E" := (nstack (fun i : 'I_u => E))
+  (only parsing) : tensor_scope.
+Notation "\tensor `_ ( i < d ) E" := (ostack (fun i : 'I_d => E))
+  (only parsing) : tensor_scope.
+Notation "\tensor ^^ i E" := (\tensor^^(i < _) E) : tensor_scope.
+Notation "\tensor `_ i E" := (\tensor`_(i < _) E) : tensor_scope.
+Notation "\tensor ^^ ( i < u ) => E" := (\tensor^^(i < u) const_t E)
+  (only parsing) : tensor_scope.
+Notation "\tensor `_ ( i < d ) => E" := (\tensor`_(i < d) const_t E)
+  (only parsing) : tensor_scope.
+Notation "\tensor ^^ i => E" := (\tensor^^i const_t E) : tensor_scope.
+Notation "\tensor `_ i => E" := (\tensor`_i const_t E) : tensor_scope.
 
 Section TensorIndexTheory.
 Context (R : Type).
@@ -685,6 +636,12 @@ Definition ntensor_of_tuple (t : x%:num%R.-tuple R)
 Definition otensor_of_tuple (t : x%:num%R.-tuple R)
   : 'oT[R]_([tuple x]) := \tensor`_i => (tnth t i).
 
+Definition tuple_of_ntensor (t : 'nT[R]_([tuple x])) :=
+  [tuple t^^=i | i < x%:num%R].
+
+Definition tuple_of_otensor (t : 'oT[R]_([tuple x])) :=
+  [tuple t`_=i | i < x%:num%R].
+
 Lemma ntensor_of_tupleE t i : (ntensor_of_tuple t)^^=i = tnth t i.
 Proof. exact: nstack_eqE. Qed.
 
@@ -707,13 +664,13 @@ End TensorTuple.
 
 
 Notation "[ 'tensor' ^^ t ; .. ; tn ]" :=
-  (nstack_tuple [tuple of t :: .. [:: tn] ..]).
-Notation "[ 'tensor' ^^= x ; .. ; xn ]" := 
-  (ntensor_of_tuple [tuple of x :: .. [:: xn] ..]).
+  (nstack_tuple [tuple of t :: .. [:: tn] ..]) : tensor_scope.
+Notation "[ 'tensor' ^^= x ; .. ; xn ]" :=
+  (ntensor_of_tuple [tuple of x :: .. [:: xn] ..]) : tensor_scope.
 Notation "[ 'tensor' `_ t ; .. ; tn ]" :=
-  (ostack_tuple [tuple of t :: .. [:: tn] ..]).
-Notation "[ 'tensor' `_= x ; .. ; xn ]" := 
-  (otensor_of_tuple [tuple of x :: .. [:: xn] ..]).
+  (ostack_tuple [tuple of t :: .. [:: tn] ..]) : tensor_scope.
+Notation "[ 'tensor' `_= x ; .. ; xn ]" :=
+  (otensor_of_tuple [tuple of x :: .. [:: xn] ..]) : tensor_scope.
 
 
 Section TensorMatrix.
