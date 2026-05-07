@@ -14,16 +14,20 @@ From Corelib Require Import ssreflect.
 (*                         coerced automatically to {posnum nat} ^ k and      *)
 (*                         {posnum nat} ^ l finfuns                           *)
 (*                         The [R] is optional and can usually be omitted     *)
-(* 'T[R]_[u1 :: .. :: uk ; d1 :: .. :: dl] ==                                 *)
+(* 'T[R]_[u1, .., uk ; d1, .., dl] ==                                         *)
 (*                         shorthand parsing notation for                     *)
 (*                         'T[R]_([tuple of u1%:posnat :: .. :: uk%:posnat],  *)
 (*                                [tuple of d1%:posnat :: .. :: dl%:posnat]); *)
-(*                         e.g. 'T[R]_[2 :: 3 ; 4] for a tensor with          *)
+(*                         e.g. 'T[R]_[2, 3 ; 4] for a tensor with            *)
 (*                         contravariant dims (2, 3) and covariant dim (4)    *)
 (* 'nT[R]_(u_), 'nT_(u_) == purely contravariant tensors (no covariant dims), *)
 (*                          i.e. 'T[R]_(u_, [tuple])                          *)
+(* 'nT[R]_[u1, .., uk]   == shorthand parsing notation for                    *)
+(*                          'nT[R]_([tuple of u1%:posnat :: .. :: uk%:posnat])*)
 (* 'oT[R]_(d_), 'oT_(d_) == purely covariant tensors (no contravariant dims), *)
 (*                          i.e. 'T[R]_([tuple], d_)                          *)
+(* 'oT[R]_[d1, .., dl]   == shorthand parsing notation for                    *)
+(*                          'oT[R]_([tuple of d1%:posnat :: .. :: dl%:posnat])*)
 (*                  t^^i == the tensor obtained by fixing the first           *)
 (*                          contravariant dimension of t to i                 *)
 (*                  t`_i == the tensor obtained by fixing the first           *)
@@ -53,9 +57,8 @@ From Corelib Require Import ssreflect.
 (*                         construction of a tensor from a sequence of values *)
 (* Tensors are instances of subType of matrix, and inherit all combinatorial  *)
 (* structures (including finType), as well as nmodType, zmodType,             *)
-(* lSemiModType, lModType.                                                    *)
-(*   Tensors also implement a pointwise partial ordering, as well as          *)
-(* ring instances where the underlying type satisfies that instance.          *)
+(* lSemiModType, lModType, and ring instances where the underlying type       *)
+(* satisfies that instance.                                                   *)
 (* NOTE: Ring multiplication ( *%R ) is the Hadamard (element-wise) product.  *)
 (* Proper tensor product forms a bilinear structure.                          *)
 (*                                                                            *)
@@ -64,6 +67,11 @@ From Corelib Require Import ssreflect.
 (*           same as t * u (ring multiplication)                              *)
 (* t *t u == proper tensor product: combines dimensions,                      *)
 (*           'T_(u1, d1) * 'T_(u2, d2) -> 'T_(cat u1 u2, cat d1 d2)           *)
+(*                                                                            *)
+(* Notations: indexing operations (^^, `_, ^^=, `_=), the stacking            *)
+(* constructors (\tensor^^, \tensor`_), the bracket constructors              *)
+(* ([tensor^^ ...], [tensor`_ ...], [tensor^^= ...], [tensor`_= ...]) and     *)
+(* the nullary projection (t.[::]) live in tensor_scope (delimited %tnsr).    *)
 (******************************************************************************)
 
 Set Implicit Arguments.
@@ -151,7 +159,7 @@ HB.instance Definition _ := [isNew for tensor_val].
 End TensorDef.
 
 Notation "''T[' R ]_ ( u_ , d_ )" := (tensor u_ d_ R) (only parsing).
-Notation "''T[' R ]_ [ u1 :: .. :: uk ; d1 :: .. :: dl ]"
+Notation "''T[' R ]_ [ u1 , .. , uk ; d1 , .. , dl ]"
   := (tensor [tuple of u1%:posnat :: .. [:: uk%:posnat] ..]
              [tuple of d1%:posnat :: .. [:: dl%:posnat] ..] R) (only parsing).
 Notation "''T_' ( u_ , d_ )" := (tensor u_ d_ _).
