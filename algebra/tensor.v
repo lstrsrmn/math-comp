@@ -42,6 +42,10 @@ From Corelib Require Import ssreflect.
 (*                         usually be omitted                                 *)
 (*            const_t v == the constant tensor whose entries are all v        *)
 (*                         (dimensions are inferred from context)             *)
+(*          castt eq_ud == reshape a tensor t : 'T[R]_(u_, d_) into one of    *)
+(*                         type 'T[R]_(u_', d_') given a pair eq_ud of        *)
+(*                         equalities on \prod_i u_ i and \prod_j d_ j;       *)
+(*                         mirrors castmx                                     *)
 (*               t.[::] == the value of the single entry in a                 *)
 (*                         tensor t : 'T_([tuple], [tuple])                   *)
 (*         t^^=i, t`_=i == variants of the indexing operations equivalent to  *)
@@ -212,6 +216,68 @@ End SubtypeInstances.
 
 Definition const_t {R k l} {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
   (v : R) : 'T[R]_(u_, d_) := Tensor (const_mx v).
+
+
+Section TensorCast.
+
+Context {R : Type}.
+
+Definition castt {k l k' l' : nat}
+    {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
+    {u_' : {posnum nat} ^ k'} {d_' : {posnum nat} ^ l'}
+    (eq_ud : (\prod_(i < k) (u_ i)%:num = \prod_(i < k') (u_' i)%:num)
+           * (\prod_(j < l) (d_ j)%:num = \prod_(j < l') (d_' j)%:num))
+    (t : 'T[R]_(u_, d_)) : 'T[R]_(u_', d_') :=
+  Tensor (castmx eq_ud (\val t)).
+
+Lemma val_castt {k l k' l' : nat}
+    {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
+    {u_' : {posnum nat} ^ k'} {d_' : {posnum nat} ^ l'}
+    (eq_ud : (\prod_(i < k) (u_ i)%:num = \prod_(i < k') (u_' i)%:num)
+           * (\prod_(j < l) (d_ j)%:num = \prod_(j < l') (d_' j)%:num))
+    (t : 'T[R]_(u_, d_)) :
+  \val (castt eq_ud t) = castmx eq_ud (\val t).
+Proof. by []. Qed.
+
+Lemma castt_id {k l : nat}
+    {u_ : {posnum nat} ^ k} {d_ : {posnum nat} ^ l}
+    erefl_ud (t : 'T[R]_(u_, d_)) :
+  castt erefl_ud t = t.
+Proof. by apply/val_inj; rewrite val_castt castmx_id. Qed.
+
+Lemma castt_comp {k1 l1 k2 l2 k3 l3 : nat}
+    {u1 : {posnum nat} ^ k1} {d1 : {posnum nat} ^ l1}
+    {u2 : {posnum nat} ^ k2} {d2 : {posnum nat} ^ l2}
+    {u3 : {posnum nat} ^ k3} {d3 : {posnum nat} ^ l3}
+    (eq_u1 : \prod_(i < k1) (u1 i)%:num = \prod_(i < k2) (u2 i)%:num)
+    (eq_d1 : \prod_(j < l1) (d1 j)%:num = \prod_(j < l2) (d2 j)%:num)
+    (eq_u2 : \prod_(i < k2) (u2 i)%:num = \prod_(i < k3) (u3 i)%:num)
+    (eq_d2 : \prod_(j < l2) (d2 j)%:num = \prod_(j < l3) (d3 j)%:num)
+    (t : 'T[R]_(u1, d1)) :
+  castt (eq_u2, eq_d2) (castt (eq_u1, eq_d1) t)
+    = castt (etrans eq_u1 eq_u2, etrans eq_d1 eq_d2) t.
+Proof. by apply/val_inj; rewrite !val_castt castmx_comp. Qed.
+
+Lemma casttK {k1 l1 k2 l2 : nat}
+    {u1 : {posnum nat} ^ k1} {d1 : {posnum nat} ^ l1}
+    {u2 : {posnum nat} ^ k2} {d2 : {posnum nat} ^ l2}
+    (eq_u : \prod_(i < k1) (u1 i)%:num = \prod_(i < k2) (u2 i)%:num)
+    (eq_d : \prod_(j < l1) (d1 j)%:num = \prod_(j < l2) (d2 j)%:num) :
+  cancel (castt (u_' := u2) (d_' := d2) (eq_u, eq_d))
+         (castt (esym eq_u, esym eq_d)).
+Proof. by move=> t; apply/val_inj; rewrite !val_castt castmxK. Qed.
+
+Lemma casttKV {k1 l1 k2 l2 : nat}
+    {u1 : {posnum nat} ^ k1} {d1 : {posnum nat} ^ l1}
+    {u2 : {posnum nat} ^ k2} {d2 : {posnum nat} ^ l2}
+    (eq_u : \prod_(i < k1) (u1 i)%:num = \prod_(i < k2) (u2 i)%:num)
+    (eq_d : \prod_(j < l1) (d1 j)%:num = \prod_(j < l2) (d2 j)%:num) :
+  cancel (castt (u_ := u2) (d_ := d2) (u_' := u1) (d_' := d1)
+                (esym eq_u, esym eq_d))
+         (castt (eq_u, eq_d)).
+Proof. by move=> t; apply/val_inj; rewrite !val_castt castmxKV. Qed.
+
+End TensorCast.
 
 
 Section TensorRing.
