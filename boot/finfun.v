@@ -16,6 +16,9 @@ From mathcomp Require Import fintype tuple.
 (*   define inductive types, e.g., Inductive tree := node n of tree ^ n (see  *)
 (*   mid-file for an expanded example).                                       *)
 (* --> More generally, {ffun fT} is always structurally positive.             *)
+(*    fcat f g == concatenation of f : T ^ n and g : T ^ m as a finfun        *)
+(*               of type T ^ (n + m), with lemmas fcat_lshift, fcat_rshift    *)
+(*      f +++ g == infix notation for fcat f g                                *)
 (*   {ffun fT} inherits combinatorial structures of rT, i.e., eqType,         *)
 (* choiceType, countType, and finType. However, due to some limitations of    *)
 (* the Coq 8.9 unification code the structures are only inherited in the      *)
@@ -289,6 +292,25 @@ by move=> f; apply/ffunP => i; rewrite ffunE tnth_map tnth_ord_tuple.
 Qed.
 
 End FinFunTuple.
+
+Reserved Notation "f +++ g" (at level 60, right associativity).
+
+Section FinFunCat.
+
+Context {T : Type} {n m : nat}.
+
+Definition fcat (f : T ^ n) (g : T ^ m) : T ^ (n + m) :=
+  [ffun i => match split i with inl j => f j | inr j => g j end].
+
+Lemma fcat_lshift f g j : fcat f g (lshift m j) = f j.
+Proof. by rewrite ffunE (unsplitK (inl _ _)). Qed.
+
+Lemma fcat_rshift f g j : fcat f g (rshift n j) = g j.
+Proof. by rewrite ffunE (unsplitK (inr _ _)). Qed.
+
+End FinFunCat.
+
+Infix "+++" := fcat.
 
 Section FunPlainTheory.
 

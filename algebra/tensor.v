@@ -70,7 +70,7 @@ From Corelib Require Import ssreflect.
 (* t *h u == Hadamard product of t and u (element-wise multiplication),       *)
 (*           same as t * u (ring multiplication)                              *)
 (* t *t u == proper tensor product: combines dimensions,                      *)
-(*           'T_(u1, d1) * 'T_(u2, d2) -> 'T_(cat u1 u2, cat d1 d2)           *)
+(*           'T_(u1, d1) * 'T_(u2, d2) -> 'T_(u1 +++ u2, d1 +++ d2)           *)
 (*                                                                            *)
 (* Notations: indexing operations (^^, `_, ^^=, `_=), the stacking            *)
 (* constructors (\tensor^^, \tensor`_), the bracket constructors              *)
@@ -776,26 +776,13 @@ Context {k1 l1 k2 l2 : nat}.
 Context (u1_ : {posnum nat} ^ k1) (d1_ : {posnum nat} ^ l1).
 Context (u2_ : {posnum nat} ^ k2) (d2_ : {posnum nat} ^ l2).
 
-Definition fcat {n m : nat} (f : {posnum nat} ^ n) (g : {posnum nat} ^ m) : {posnum nat} ^ (n + m) :=
-  [ffun i : 'I_(n + m) => 
-    match split i with
-    | inl j => f j
-    | inr j => g j
-    end].
-
 Lemma prod_fcat {n m : nat} (f : {posnum nat} ^ n) (g : {posnum nat} ^ m) :
-  \prod_(i < n) (f i)%:num%R * \prod_(i < m) (g i)%:num%R = \prod_(i < n + m) (fcat f g i)%:num%R.
+  \prod_(i < n) (f i)%:num%R * \prod_(i < m) (g i)%:num%R
+    = \prod_(i < n + m) ((f +++ g) i)%:num%R.
 Proof.
-rewrite big_split_ord/= /fcat.
-congr (_ * _).
-  apply/eq_bigr => i _; rewrite ffunE/=.
-  case: split_ordP => j.
-    by move=>/lshift_inj ->.
-  by move=>/eqP; rewrite eq_lrshift.
-apply/eq_bigr => i _; rewrite ffunE/=.
-case: split_ordP => j.
-  by move=> /eqP; rewrite eq_rlshift.
-by move=>/rshift_inj ->.
+rewrite big_split_ord; congr (_ * _); apply: eq_bigr => i _.
+  by rewrite fcat_lshift.
+by rewrite fcat_rshift.
 Qed.
 
 Lemma prod_card (m n : nat) : #|{:'I_m * 'I_n}| = (m * n)%N.
@@ -807,8 +794,8 @@ Definition prod_split (m n : nat) (i : 'I_(m * n)) : 'I_m * 'I_n :=
 Definition prod_unsplit (m n : nat) (ij : 'I_m * 'I_n) : 'I_(m * n) :=
   cast_ord (prod_card m n) (enum_rank ij).
 
-Definition mults (t : 'T[R]_(u1_, d1_)) (u : 'T[R]_(u2_, d2_)) 
-  : 'T[R]_(fcat u1_ u2_, fcat d1_ d2_) :=
+Definition mults (t : 'T[R]_(u1_, d1_)) (u : 'T[R]_(u2_, d2_))
+  : 'T[R]_(u1_ +++ u2_, d1_ +++ d2_) :=
   Tensor (\matrix_(i, j) 
     let ii := prod_split (cast_ord (esym (prod_fcat _ _)) i) in
     let jj := prod_split (cast_ord (esym (prod_fcat _ _)) j) in
@@ -880,7 +867,7 @@ Qed.
 HB.instance Definition _ := bilinear_isBilinear.Build
   R
   'T[R]_(u1_, d1_) 'T[R]_(u2_, d2_)
-  'T[R]_(fcat u1_ u2_, fcat d1_ d2_)
+  'T[R]_(u1_ +++ u2_, d1_ +++ d2_)
   *:%R *:%R (@mults _ _ _ _ _ _ _ _ _) (conj mults_linear_l mults_linear_r).
 
 End TensorProductBilinear.
