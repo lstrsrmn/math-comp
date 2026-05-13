@@ -619,6 +619,51 @@ Definition ostack (f : 'I_d%:num -> 'T[R]_(u_, d_)) : 'T[R]_(u_, d_cons) :=
 
 End IndexTensor.
 
+Lemma tuple_eta_behead
+  : forall [n : nat] [T : Type] (t : (n.+1).-tuple T), t = [tuple of thead t :: behead_tuple t].
+Proof.
+move=> n T t.
+by rewrite [X in X = _](tuple_eta t) /=.
+Qed.
+
+Fixpoint tensor_nindex {R : Type} {k l : nat} {u_ : k.-tuple {posnum nat}} {d_ : l.-tuple {posnum nat}}
+  (t : 'T[R]_(u_, d_)) (i : 'I_(\prod_(i < k) (u_ i)%:posnum)) : 'oT[R]_(d_).
+Proof.
+case: k u_ t i.
+  move=> u_.
+  rewrite tuple0 => t i.
+  by apply/t.
+move=> k u_ t.
+rewrite [u_]tuple_eta => i.
+move: i (tensormx_unindex i) => _ i.
+apply/(tensor_nindex R k l (behead_tuple u_) d_).
+  apply/(nindex _ (fst i)).
+  rewrite -tuple_eta.
+  by apply/t.
+by apply/snd/i.
+Qed.
+
+Fixpoint tensor_oindex {R : Type} {k l : nat} {u_ : k.-tuple {posnum nat}} {d_ : l.-tuple {posnum nat}}
+  (t : 'T[R]_(u_, d_)) (i : 'I_(\prod_(i < l) (d_ i)%:posnum)) : 'nT[R]_(u_).
+Proof.
+case: l d_ t i.
+  move=> d_.
+  rewrite tuple0 => t i.
+  by apply/t.
+move=> l d_ t.
+rewrite [d_]tuple_eta => i.
+move: i (tensormx_unindex i) => _ i.
+apply/(tensor_oindex R k l u_ (behead_tuple d_)).
+  apply/(oindex _ (fst i)).
+  rewrite -tuple_eta.
+  by apply/t.
+by apply/snd/i.
+Qed.
+
+Definition whole_tensor_index {R : Type} {k l : nat} {u_ : k.-tuple {posnum nat}} {d_ : l.-tuple {posnum nat}}
+  (t : 'T[R]_(u_, d_)) (i0 : 'I_(\prod_(i < k) (u_ i)%:posnum)) (i1 : 'I_(\prod_(i < l) (d_ i)%:posnum)) : R :=
+  (tensor_nindex (tensor_oindex t i1) i0).[::] .
+
 Notation "t ^^ i" := (nindex t i) : tensor_scope.
 Notation "t `_ i" := (oindex t i) : tensor_scope.
 Notation "t ^^= i" := ((t^^i).[::]) : tensor_scope.
