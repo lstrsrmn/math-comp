@@ -684,56 +684,217 @@ Qed.
 
 End TensorMatrix.
 
-(* Coercion from 2d tensors to matrices: matrix operations (most notably the *)
-(* matrix product *m) are then available on tensors of shape                 *)
-(* 'T_([tuple n], [tuple m]), 'nT_([tuple n; m]) and 'oT_([tuple n; m]).      *)
-(* Rocq only allows one coercion path tensor >-> matrix, so the shape is     *)
-(* dispatched during unification by the canonical structures mx_shape (case  *)
-(* analysis on the first contravariant dimension) and mx_tail (case analysis *)
-(* on the second one), keyed on the cons_tuple / nil_tuple constructors that *)
-(* the [tuple ...] notations elaborate to. On a tensor that is not 2d, the   *)
-(* structure inference fails, hence so does the coercion, and the user gets  *)
-(* an ordinary type error.                                                   *)
+(* Coercions between 2d tensors and matrices: matrix operations (most         *)
+(* notably the matrix product *m) are then available on tensors of shape      *)
+(* 'T_([tuple n], [tuple m]), 'nT_([tuple n; m]) and 'oT_([tuple n; m]), and  *)
+(* matrices can be used where such tensors are expected.                      *)
+(* Rocq only allows one coercion path in each direction, so the shape is      *)
+(* dispatched during unification by the canonical structures mx_shape (case   *)
+(* analysis on the first contravariant dimension) and mx_tail (case analysis  *)
+(* on the second one), keyed on the cons_tuple / nil_tuple constructors that  *)
+(* the [tuple ...] notations elaborate to. On a tensor that is not 2d, the    *)
+(* structure inference fails, hence so does the coercion, and the user gets   *)
+(* an ordinary type error. When a matrix is coerced to a tensor and the       *)
+(* expected tensor type does not determine the shape at all, the typeclass    *)
+(* instance mx_shape20 picks the shape 'nT_([tuple n; m]). Beware that, as    *)
+(* any typeclass resolution, this only happens at the end of the elaboration  *)
+(* of the term, and not at all in the ssreflect tactics have, pose, etc.,     *)
+(* which abstract the unresolved instances instead. The ascription            *)
+(* (M : 'nT_(_)) selects the same shape, but during unification.              *)
+(* The dimensions of a tensor are positive numbers while those of a matrix    *)
+(* are natural numbers, which are related through the structure mx_dim: an    *)
+(* inhabitant of mx_dim n is a p : {posnum nat} such that p%:num = n; its     *)
+(* canonical instance mx_dim_default p : mx_dim p%:num is a default instance  *)
+(* (it matches any p), so that the matrix dimension is checked by conversion  *)
+(* against the one of the tensor once the latter is known (this is what lets  *)
+(* a literal matrix type 'M[R]_(2, 3) be coerced to 'nT[R]_[2, 3]).           *)
+
+Structure mx_dim (n : nat) := MxDim {
+  mx_dim_pos : {posnum nat};
+  mx_dimE : mx_dim_pos%:num%R = n
+}.
+
+Canonical mx_dim_default (p : {posnum nat}) : mx_dim p%:num%R :=
+  @MxDim _ p erefl.
+
+Existing Class mx_dim.
+#[global] Hint Mode mx_dim ! : typeclass_instances.
+#[global] Existing Instance mx_dim_default.
+#[global] Hint Extern 1 (mx_dim _) =>
+  match goal with |- mx_dim ?n => exact (mx_dim_default n%:posnat) end
+  : typeclass_instances.
 
 Structure mx_tail (k l q : nat) := MxTail {
   mx_tail_u : k.-tuple {posnum nat};
   mx_tail_d : l.-tuple {posnum nat};
   mx_tail_mx : forall (R : Type) (n : {posnum nat}),
     'T[R]_([tuple of n :: mx_tail_u], [tuple of mx_tail_d])
-    -> 'M[R]_(n%:num%R, q)
+    -> 'M[R]_(n%:num%R, q);
+  mx_tail_t : forall (R : Type) (n : {posnum nat}),
+    'M[R]_(n%:num%R, q)
+    -> 'T[R]_([tuple of n :: mx_tail_u], [tuple of mx_tail_d]);
+  _ : forall R n, cancel (@mx_tail_mx R n) (@mx_tail_t R n);
+  _ : forall R n, cancel (@mx_tail_t R n) (@mx_tail_mx R n)
 }.
 
 Structure mx_shape (k l p q : nat) := MxShape {
   mx_shape_u : k.-tuple {posnum nat};
   mx_shape_d : l.-tuple {posnum nat};
   mx_shape_mx : forall R : Type,
-    'T[R]_([tuple of mx_shape_u], [tuple of mx_shape_d]) -> 'M[R]_(p, q)
+    'T[R]_([tuple of mx_shape_u], [tuple of mx_shape_d]) -> 'M[R]_(p, q);
+  mx_shape_t : forall R : Type,
+    'M[R]_(p, q) -> 'T[R]_([tuple of mx_shape_u], [tuple of mx_shape_d]);
+  _ : forall R, cancel (@mx_shape_mx R) (@mx_shape_t R);
+  _ : forall R, cancel (@mx_shape_t R) (@mx_shape_mx R)
 }.
 
-Canonical mx_tail11 (m : {posnum nat}) : mx_tail 0 1 m%:num%R :=
-  @MxTail _ _ _ (nil_tuple _) (cons_tuple m (nil_tuple _))
-    (fun R n => @matrix_of_tensor R n m).
+Section MxShapeInstances.
+Implicit Types (R : Type) (n m : {posnum nat}).
 
-Canonical mx_tail20 (m : {posnum nat}) : mx_tail 1 0 m%:num%R :=
-  @MxTail _ _ _ (cons_tuple m (nil_tuple _)) (nil_tuple _)
-    (fun R n => @matrix_of_ntensor R n m).
+Lemma mx_tail11_mxK q (m : mx_dim q) R n :
+  cancel (fun t : 'T[R]_([tuple n], [tuple mx_dim_pos m]) =>
+            castmx (erefl, mx_dimE m) (matrix_of_tensor t))
+         (fun M => tensor_of_matrix (castmx (erefl, esym (mx_dimE m)) M)).
+Proof.
+by case: m => p /= e; case: q / e => t; rewrite !castmx_id matrix_of_tensorK.
+Qed.
 
-Canonical mx_shape_cons k l q (n : {posnum nat}) (t : mx_tail k l q) :
-  mx_shape k.+1 l n%:num%R q :=
-  @MxShape _ _ _ _ (cons_tuple n (mx_tail_u t)) (mx_tail_d t)
-    (fun R => @mx_tail_mx _ _ _ t R n).
+Lemma mx_tail11_tK q (m : mx_dim q) R n :
+  cancel (fun M : 'M[R]_(n%:num%R, q) =>
+            tensor_of_matrix (castmx (erefl, esym (mx_dimE m)) M))
+         (fun t => castmx (erefl, mx_dimE m) (matrix_of_tensor t)).
+Proof.
+by case: m => p /= e; case: q / e => M; rewrite tensor_of_matrixK !castmx_id.
+Qed.
 
-Canonical mx_shape02 (n m : {posnum nat}) : mx_shape 0 2 n%:num%R m%:num%R :=
-  @MxShape _ _ _ _ (nil_tuple _) (cons_tuple n (cons_tuple m (nil_tuple _)))
-    (fun R => @matrix_of_otensor R n m).
+Canonical mx_tail11 q (m : mx_dim q) : mx_tail 0 1 q :=
+  @MxTail _ _ _ (nil_tuple _) (cons_tuple (mx_dim_pos m) (nil_tuple _))
+    (fun R n t => castmx (erefl, mx_dimE m) (matrix_of_tensor t))
+    (fun R n M => tensor_of_matrix (castmx (erefl, esym (mx_dimE m)) M))
+    (@mx_tail11_mxK q m) (@mx_tail11_tK q m).
+
+Lemma mx_tail20_mxK q (m : mx_dim q) R n :
+  cancel (fun t : 'nT[R]_([tuple n; mx_dim_pos m]) =>
+            castmx (erefl, mx_dimE m) (matrix_of_ntensor t))
+         (fun M => ntensor_of_matrix (castmx (erefl, esym (mx_dimE m)) M)).
+Proof.
+by case: m => p /= e; case: q / e => t; rewrite !castmx_id matrix_of_ntensorK.
+Qed.
+
+Lemma mx_tail20_tK q (m : mx_dim q) R n :
+  cancel (fun M : 'M[R]_(n%:num%R, q) =>
+            ntensor_of_matrix (castmx (erefl, esym (mx_dimE m)) M))
+         (fun t => castmx (erefl, mx_dimE m) (matrix_of_ntensor t)).
+Proof.
+by case: m => p /= e; case: q / e => M; rewrite ntensor_of_matrixK !castmx_id.
+Qed.
+
+Canonical mx_tail20 q (m : mx_dim q) : mx_tail 1 0 q :=
+  @MxTail _ _ _ (cons_tuple (mx_dim_pos m) (nil_tuple _)) (nil_tuple _)
+    (fun R n t => castmx (erefl, mx_dimE m) (matrix_of_ntensor t))
+    (fun R n M => ntensor_of_matrix (castmx (erefl, esym (mx_dimE m)) M))
+    (@mx_tail20_mxK q m) (@mx_tail20_tK q m).
+
+Lemma mx_shape_cons_mxK k l p q (n : mx_dim p) (t : mx_tail k l q) R :
+  cancel (fun x => castmx (mx_dimE n, erefl)
+                     (@mx_tail_mx _ _ _ t R (mx_dim_pos n) x))
+         (fun M => @mx_tail_t _ _ _ t R (mx_dim_pos n)
+                     (castmx (esym (mx_dimE n), erefl) M)).
+Proof.
+case: n => p' /= e; case: p / e => x; rewrite !castmx_id.
+by case: t x => u d mx tt K K' x; apply: K.
+Qed.
+
+Lemma mx_shape_cons_tK k l p q (n : mx_dim p) (t : mx_tail k l q) R :
+  cancel (fun M : 'M[R]_(p, q) => @mx_tail_t _ _ _ t R (mx_dim_pos n)
+                     (castmx (esym (mx_dimE n), erefl) M))
+         (fun x => castmx (mx_dimE n, erefl)
+                     (@mx_tail_mx _ _ _ t R (mx_dim_pos n) x)).
+Proof.
+case: n => p' /= e; case: p / e => M; rewrite !castmx_id.
+by case: t M => u d mx tt K K' M; apply: K'.
+Qed.
+
+Canonical mx_shape_cons k l p q (n : mx_dim p) (t : mx_tail k l q) :
+  mx_shape k.+1 l p q :=
+  @MxShape _ _ _ _ (cons_tuple (mx_dim_pos n) (mx_tail_u t)) (mx_tail_d t)
+    (fun R x => castmx (mx_dimE n, erefl)
+                  (@mx_tail_mx _ _ _ t R (mx_dim_pos n) x))
+    (fun R M => @mx_tail_t _ _ _ t R (mx_dim_pos n)
+                  (castmx (esym (mx_dimE n), erefl) M))
+    (@mx_shape_cons_mxK k l p q n t) (@mx_shape_cons_tK k l p q n t).
+
+Lemma mx_shape02_mxK p q (n : mx_dim p) (m : mx_dim q) R :
+  cancel (fun t : 'oT[R]_([tuple mx_dim_pos n; mx_dim_pos m]) =>
+            castmx (mx_dimE n, mx_dimE m) (matrix_of_otensor t))
+         (fun M => otensor_of_matrix
+                     (castmx (esym (mx_dimE n), esym (mx_dimE m)) M)).
+Proof.
+case: n m => p' /= e [q' /= e']; case: p / e; case: q / e' => t.
+by rewrite !castmx_id matrix_of_otensorK.
+Qed.
+
+Lemma mx_shape02_tK p q (n : mx_dim p) (m : mx_dim q) R :
+  cancel (fun M : 'M[R]_(p, q) => otensor_of_matrix
+                     (castmx (esym (mx_dimE n), esym (mx_dimE m)) M))
+         (fun t => castmx (mx_dimE n, mx_dimE m) (matrix_of_otensor t)).
+Proof.
+case: n m => p' /= e [q' /= e']; case: p / e; case: q / e' => M.
+by rewrite otensor_of_matrixK !castmx_id.
+Qed.
+
+Canonical mx_shape02 p q (n : mx_dim p) (m : mx_dim q) : mx_shape 0 2 p q :=
+  @MxShape _ _ _ _ (nil_tuple _)
+    (cons_tuple (mx_dim_pos n) (cons_tuple (mx_dim_pos m) (nil_tuple _)))
+    (fun R t => castmx (mx_dimE n, mx_dimE m) (matrix_of_otensor t))
+    (fun R M => otensor_of_matrix
+                  (castmx (esym (mx_dimE n), esym (mx_dimE m)) M))
+    (@mx_shape02_mxK p q n m) (@mx_shape02_tK p q n m).
+
+(* The shape 'nT_([tuple n; m]) is also dispatched on the empty covariant     *)
+(* dimension tuple, so that it is selected by the ascription (M : 'nT_(_)),   *)
+(* and it is the default shape, as a typeclass instance. In both cases, the   *)
+(* contravariant dimensions are unknown, so they are inferred from the        *)
+(* matrix type, which must thus be of the form 'M_(n%:num, m%:num) (as is     *)
+(* the type of a matrix obtained from a tensor by the coercion mx_of_tensor). *)
+(* The instance mx_shape20 n m is convertible to                              *)
+(* mx_shape_cons (mx_dim_default n) (mx_tail20 (mx_dim_default m)).           *)
+Canonical mx_shape20 n m : mx_shape 2 0 n%:num%R m%:num%R :=
+  let dn := mx_dim_default n in let dm := mx_dim_default m in
+  let s := mx_shape_cons dn (mx_tail20 dm) in
+  @MxShape _ _ _ _ (cons_tuple n (cons_tuple m (nil_tuple _))) (nil_tuple _)
+    (@mx_shape_mx _ _ _ _ s) (@mx_shape_t _ _ _ _ s)
+    (@mx_shape_cons_mxK _ _ _ _ dn (mx_tail20 dm))
+    (@mx_shape_cons_tK _ _ _ _ dn (mx_tail20 dm)).
+
+End MxShapeInstances.
+
+Existing Class mx_shape.
+#[global] Hint Mode mx_shape - - ! ! : typeclass_instances.
+#[global] Existing Instance mx_shape20.
 
 Definition mx_of_tensor {k l p q} {s : mx_shape k l p q} {R : Type}
     (t : 'T[R]_([tuple of mx_shape_u s], [tuple of mx_shape_d s])) :
     'M[R]_(p, q) :=
   @mx_shape_mx _ _ _ _ s R t.
 
+Definition tensor_of_mx {k l p q} {s : mx_shape k l p q} {R : Type}
+    (M : 'M[R]_(p, q)) :
+    'T[R]_([tuple of mx_shape_u s], [tuple of mx_shape_d s]) :=
+  @mx_shape_t _ _ _ _ s R M.
+
 #[warning="-uniform-inheritance"]
 Coercion mx_of_tensor : tensor >-> matrix.
+#[warning="-uniform-inheritance,-ambiguous-paths"]
+Coercion tensor_of_mx : matrix >-> tensor.
+
+Lemma mx_of_tensorK k l p q (s : mx_shape k l p q) R :
+  cancel (@mx_of_tensor k l p q s R) (@tensor_of_mx k l p q s R).
+Proof. by case: s. Qed.
+
+Lemma tensor_of_mxK k l p q (s : mx_shape k l p q) R :
+  cancel (@tensor_of_mx k l p q s R) (@mx_of_tensor k l p q s R).
+Proof. by case: s. Qed.
 
 Lemma mx_of_tensorE {R : Type} {n m : {posnum nat}}
     (t : 'T[R]_([tuple n], [tuple m])) :
@@ -749,6 +910,23 @@ Lemma mx_of_otensorE {R : Type} {n m : {posnum nat}}
     (t : 'oT[R]_([tuple n; m])) :
   mx_of_tensor t = matrix_of_otensor t.
 Proof. by []. Qed.
+
+Lemma tensor_of_mxE {R : Type} {n m : {posnum nat}}
+    (M : 'M[R]_(n%:num%R, m%:num%R)) :
+  (M : 'T[R]_([tuple n], [tuple m])) = tensor_of_matrix M.
+Proof. by []. Qed.
+
+Lemma ntensor_of_mxE {R : Type} {n m : {posnum nat}}
+    (M : 'M[R]_(n%:num%R, m%:num%R)) :
+  (M : 'nT[R]_([tuple n; m])) = ntensor_of_matrix M.
+Proof. by []. Qed.
+
+Lemma otensor_of_mxE {R : Type} {n m : {posnum nat}}
+    (M : 'M[R]_(n%:num%R, m%:num%R)) :
+  (M : 'oT[R]_([tuple n; m])) = otensor_of_matrix M.
+Proof. by []. Qed.
+
+
 
 Section TensorProduct.
 Context {R : semiRingType}.
