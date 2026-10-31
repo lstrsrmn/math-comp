@@ -3,7 +3,7 @@
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat div seq.
 From mathcomp Require Import choice fintype finfun bigop prime binomial.
-From mathcomp Require Import nmodule.
+From mathcomp Require Import nmodule monoid.
 
 (******************************************************************************)
 (*                            Ring-like structures                            *)
@@ -582,21 +582,37 @@ Export Algebra.
 
 Import Monoid.Theory.
 
-HB.mixin Record Nmodule_isPzSemiRing R & Nmodule R := {
-  one : R;
-  mul : R -> R -> R;
-  mulrA : associative mul;
-  mul1r : left_id one mul;
-  mulr1 : right_id one mul;
-  mulrDl : left_distributive mul +%R;
-  mulrDr : right_distributive mul +%R;
-  mul0r : left_zero zero mul;
-  mulr0 : right_zero zero mul;
+HB.mixin Record Monoid_Nmodule_isPzSemiRing R & Monoid R & Nmodule R := {
+  mulrDl : left_distributive (@mul R) +%R;
+  mulrDr : right_distributive (@mul R) +%R;
+  mul0r : left_zero zero (@mul R);
+  mulr0 : right_zero zero (@mul R);
 }.
 
 #[short(type="pzSemiRingType")]
-HB.structure Definition PzSemiRing :=
-  { R of Nmodule_isPzSemiRing R & Nmodule R }.
+  HB.structure Definition PzSemiRing :=
+  { R of Monoid_Nmodule_isPzSemiRing R & Monoid R & Nmodule R }.
+
+HB.factory Record Nmodule_isPzSemiRing R & Nmodule R := {
+    one    : R;
+    mul    : R -> R -> R;
+    mulrA  : associative mul;
+    mul1r  : left_id one mul;
+    mulr1  : right_id one mul;
+    mulrDl : left_distributive mul +%R;
+    mulrDr : right_distributive mul +%R;
+    mul0r  : left_zero zero mul;
+    mulr0  : right_zero zero mul;
+}.
+
+HB.builders Context R & Nmodule_isPzSemiRing R.
+  HB.instance Definition _ := hasMul.Build R mul.
+  HB.instance Definition _ := hasOne.Build R one.
+  HB.instance Definition _ := Magma_isSemigroup.Build R mulrA.
+  HB.instance Definition _ := BaseUMagma_isUMagma.Build R mul1r mulr1.
+  HB.instance Definition _ := Monoid_Nmodule_isPzSemiRing.Build R
+    mulrDl mulrDr mul0r mulr0.
+HB.end.
 
 HB.factory Record isPzSemiRing R & Choice R := {
   zero : R;
@@ -618,8 +634,9 @@ HB.factory Record isPzSemiRing R & Choice R := {
 HB.builders Context R & isPzSemiRing R.
   HB.instance Definition _ := @isNmodule.Build R
     zero add addrA addrC add0r.
-  HB.instance Definition _ := @Nmodule_isPzSemiRing.Build R
-    one mul mulrA mul1r mulr1 mulrDl mulrDr mul0r mulr0.
+  HB.instance Definition _ := @isMonoid.Build R mul one mulrA mul1r mulr1.
+  HB.instance Definition _ := @Monoid_Nmodule_isPzSemiRing.Build R
+    mulrDl mulrDr mul0r mulr0.
 HB.end.
 
 Module PzSemiRingExports.
@@ -684,7 +701,7 @@ Bind Scope ring_scope with NzSemiRing.sort.
 End NzSemiRingExports.
 HB.export NzSemiRingExports.
 
-Definition exp R x n := iterop n (@mul R) x (@one R).
+Definition exp (R : baseUMagmaType) x n := iterop n (@mul R) x (@one R).
 Arguments exp : simpl never.
 Definition comm R x y := @mul R x y = mul y x.
 Definition lreg R x := injective (@mul R x).
