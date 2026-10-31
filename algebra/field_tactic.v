@@ -91,7 +91,7 @@ Proof. by elim: c1 c2 => [//|c c1 IH] c2; rewrite !PCond_cons IH andbA. Qed.
 End PCond.
 
 Section FieldCorrect.
-Variables (R : fieldType) (C : comPzRingType) (R_of_C : {rmorphism C -> R}).
+Variables (R : fieldType) (C : comRingType) (R_of_C : {rmorphism C -> R}).
 Variables (cdiv : C -> C -> C * C).
 Variables (cdivP : forall x y, let (q, r) := cdiv x y in x = y * q + r).
 
@@ -691,6 +691,7 @@ End ZnumField.
 
 (* Everything below is essentially imported form algebra-tactics *)
 
+#[universes(polymorphic)]
 Lemma field_correct (F : fieldType) n env
     (lpe : seq ((RExpr F * RExpr F) * (PExpr Z * PExpr Z)))
     (re1 re2 : RExpr F) (fe1 fe2 : FExpr Z) lc :
@@ -732,6 +733,7 @@ rewrite -!(@Rnorm_correct (Field F) false _ erefl) re12.
 by case: lpe {IH relpe rple} => /=; rewrite eqxx.
 Qed.
 
+#[universes(polymorphic)]
 Lemma numField_correct (F : numFieldType) n env
     (lpe : seq ((RExpr F * RExpr F) * (PExpr Z * PExpr Z)))
     (re1 re2 : RExpr F) (fe1 fe2 : FExpr Z) lc :

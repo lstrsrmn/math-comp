@@ -573,6 +573,12 @@ Lemma filter_rcons s x :
   filter (rcons s x) = if a x then rcons (filter s) x else filter s.
 Proof. by rewrite -!cats1 filter_cat /=; case (a x); rewrite /= ?cats0. Qed.
 
+Lemma last_filter s : a (last x0 s) -> last x0 (filter s) = last x0 s.
+Proof.
+case/lastP: s => [//|s x]; rewrite last_rcons => ax.
+by rewrite filter_rcons ax last_rcons.
+Qed.
+
 Lemma count_cat s1 s2 : count (s1 ++ s2) = count s1 + count s2.
 Proof. by rewrite -!size_filter filter_cat size_cat. Qed.
 
@@ -1273,6 +1279,12 @@ Proof. by elim: s => //= x s IHs /forall_cons [-> /IHs ->]. Qed.
 
 Lemma eq_in_count s : {in s, a1 =1 a2} -> count a1 s = count a2 s.
 Proof. by move/eq_in_filter=> eq_a12; rewrite -!size_filter eq_a12. Qed.
+
+Lemma sub_in_count s : {in s, subpred a1 a2} -> count a1 s <= count a2 s.
+Proof.
+elim: s => [//|x s IHs] /forall_cons[a12x /IHs le_s] /=.
+by apply: leq_add => //; case: a1 a12x => // ->.
+Qed.
 
 Lemma eq_in_all s : {in s, a1 =1 a2} -> all a1 s = all a2 s.
 Proof. by move=> eq_a12; rewrite !all_count eq_in_count. Qed.
@@ -3116,6 +3128,9 @@ Proof. by elim: n1 m => [|n1 IHn1] m; rewrite ?addn0 // -addSnnS /= -IHn1. Qed.
 Lemma iotaDl m1 m2 n : iota (m1 + m2) n = map (addn m1) (iota m2 n).
 Proof. by elim: n m2 => //= n IHn m2; rewrite -addnS IHn. Qed.
 
+Lemma iotaS m n : iota m n.+1 = rcons (iota m n) (m + n).
+Proof. by rewrite -addn1 iotaD cats1. Qed.
+
 Lemma nth_iota p m n i : i < n -> nth p (iota m n) i = m + i.
 Proof.
 by move/subnKC <-; rewrite addSnnS iotaD nth_cat size_iota ltnn subnn.
@@ -3183,7 +3198,7 @@ Proof. by rewrite size_map size_iota. Qed.
 
 Lemma mkseqS f n :
   mkseq f n.+1 = rcons (mkseq f n) (f n).
-Proof. by rewrite /mkseq -addn1 iotaD add0n map_cat cats1. Qed.
+Proof. by rewrite /mkseq iotaS map_rcons. Qed.
 
 Lemma eq_mkseq f g : f =1 g -> mkseq f =1 mkseq g.
 Proof. by move=> Efg n; apply: eq_map Efg _. Qed.

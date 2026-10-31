@@ -3,8 +3,9 @@
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq choice.
 From mathcomp Require Import div path fintype bigop ssrAC finset fingroup.
-From mathcomp Require Import nmodule order interval rings_modules_and_algebras.
-From mathcomp Require Import divalg decfield poly orderedzmod numdomain.
+From mathcomp Require Import nmodule preorder porder lattice total_order.
+From mathcomp Require Import interval rings_modules_and_algebras divalg.
+From mathcomp Require Import decfield poly orderedzmod numdomain.
 
 (******************************************************************************)
 (*                      Number structures (numfield.v)                        *)
@@ -68,7 +69,7 @@ Unset Printing Implicit Defensive.
 
 Local Open Scope ring_scope.
 
-Import Order.TTheory GRing.Theory.
+Import Order.Theory GRing.Theory.
 Import orderedzmod.Num numdomain.Num.
 
 Module Num.
@@ -1841,6 +1842,7 @@ by move=> ?; apply: deg2_poly_ge0r; rewrite // -/a ?a1 ?ler01 ?mulr1.
 Qed.
 
 Lemma deg2_poly_le0m x : 0 <= delta -> r1 <= x <= r2 -> p.[x] <= 0.
+Proof.
 move=> dge0 xm.
 by apply: deg2_poly_le0m; rewrite -/a -/b -/c ?a1 ?mulr1 -/delta ?ler01.
 Qed.

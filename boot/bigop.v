@@ -591,6 +591,10 @@ Canonical bigop_unlock := Unlockable bigop.unlock.
 
 Definition index_iota m n := iota m (n - m).
 
+Lemma index_iotaS m n :
+  m <= n -> index_iota m n.+1 = rcons (index_iota m n) n.
+Proof. by move=> ?; rewrite /index_iota subSn// iotaS subnKC. Qed.
+
 Lemma mem_index_iota m n i : (i \in index_iota m n) = (m <= i < n).
 Proof.
 rewrite mem_iota; case le_m_i: (m <= i) => //=.
@@ -1144,6 +1148,12 @@ Lemma big_nat_recl n m F : m <= n ->
      op (F m) (\big[op/idx]_(m <= i < n) F i.+1).
 Proof. by move=> lemn; rewrite big_ltn // big_add1. Qed.
 
+Lemma big_nat_recr_op n m (P : pred nat) F :
+  m <= n ->
+  let idx' := if P n then op (F n) idx else idx in
+  \big[op/idx]_(m <= i < n.+1 | P i) F i = \big[op/idx']_(m <= i < n | P i) F i.
+Proof. by move=> ?; rewrite index_iotaS// big_rcons_op. Qed.
+
 Lemma big_mkord n (P : pred nat) F :
   \big[op/idx]_(0 <= i < n | P i) F i = \big[op/idx]_(i < n | P i) F i.
 Proof.
@@ -1273,6 +1283,40 @@ Lemma big_nseq I n a (F : I -> R):
 Proof. exact: big_nseq_cond. Qed.
 
 End Extensionality.
+
+Section MoreOnExtensionality.
+
+Variables (R : Type) (idx : R) (op : R -> R -> R) (I : Type).
+
+Lemma big_nat_dvdn n d F :
+  \big[op/idx]_(0 <= i < n | d.+1 %| i) F i =
+  \big[op/idx]_(0 <= i < (n + d) %/ d.+1) F (d.+1 * i)%N.
+Proof.
+elim: n idx.
+  by move=> ?; rewrite divn_small// !big_nil.
+move=> n IHn idx0.
+rewrite addSn divnS// -addnS dvdn_addl// big_nat_recr_op// IHn.
+case/boolP: (d.+1 %| n) => H /=; last by rewrite add0n.
+rewrite add1n big_nat_recr_op//.
+rewrite divnDl// (@divn_small d)// addn0.
+congr bigop.body; congr op; congr F.
+by rewrite muln_divCA// divnn muln1.
+Qed.
+
+Lemma big_ord_recr_op n (P : pred nat) F :
+  let idx' := if P n then op (F n) idx else idx in
+  \big[op/idx]_(i < n.+1 | P i) F i = \big[op/idx']_(i < n | P i) F i.
+Proof.
+rewrite big_mknat big_nat_recr_op//=.
+case: n => [|n]; first by rewrite inordK// big_nil big_ord0.
+rewrite big_mknat inordK//.
+rewrite [LHS]big_nat_cond [RHS]big_nat_cond.
+apply: eq_big => i.
+  by apply: andb_id2l => /andP[] ? in1; rewrite !inordK// (ltn_trans in1).
+by move=> /andP[] /andP[? in1]; rewrite !inordK// (ltn_trans in1).
+Qed.
+
+End MoreOnExtensionality.
 
 Variant big_enum_spec (I : finType) (P : pred I) : seq I -> Type :=
   BigEnumSpec e of
@@ -2679,10 +2723,47 @@ move=> leE12; rewrite -big_andE.
 by elim/big_rec3: _ => // i Ci m1 m2 /leE12; apply: leqif_add.
 Qed.
 
+Lemma leq_sum_in (I : eqType) r (P : pred I) (E1 E2 : I -> nat) :
+    {in r, forall i, P i -> E1 i <= E2 i} ->
+  \sum_(i <- r | P i) E1 i <= \sum_(i <- r | P i) E2 i.
+Proof.
+move=> leE12; rewrite !(big_seq_cond P).
+have leE12' i : (i \in r) && P i -> E1 i <= E2 i.
+  by move=> /andP[ir Pi]; apply: leE12.
+by elim/big_ind2: _ => // m1 m2 n1 n2; apply: leq_add.
+Qed.
+
 Lemma leq_sum I r (P : pred I) (E1 E2 : I -> nat) :
     (forall i, P i -> E1 i <= E2 i) ->
   \sum_(i <- r | P i) E1 i <= \sum_(i <- r | P i) E2 i.
 Proof. by move=> leE12; elim/big_ind2: _ => // m1 m2 n1 n2; apply: leq_add. Qed.
+
+Lemma sub_in_leq_sum (I : eqType) r (P P' : pred I) (E : I -> nat) :
+    {in r, subpred P P'} ->
+  \sum_(i <- r | P i) E i <= \sum_(i <- r | P' i) E i.
+Proof. exact: (sub_in_le_big leqnn (fun m n => leq_addr n m)). Qed.
+
+Lemma eq_sum_leq_seq (I : eqType) r (P : pred I) (E1 E2 : I -> nat) :
+    {in r, forall i, P i -> E1 i <= E2 i} ->
+  (\sum_(i <- r | P i) E1 i == \sum_(i <- r | P i) E2 i) =
+  all (fun i => P i ==> (E1 i == E2 i)) r.
+Proof.
+move=> leE12; apply: eq_leqif.
+rewrite -big_all_cond !(big_seq_cond P).
+elim/big_rec3: _ => // i m1 m2 b /andP[ir Pi] le_m.
+by apply: leqif_add => //; apply: leqif_eq; exact: leE12.
+Qed.
+
+Lemma ltn_sum_leq_seq (I : eqType) r (P : pred I) (E1 E2 : I -> nat) :
+    {in r, forall i, P i -> E1 i <= E2 i} ->
+  (\sum_(i <- r | P i) E1 i < \sum_(i <- r | P i) E2 i) =
+  has (fun i => P i && (E1 i < E2 i)) r.
+Proof.
+move=> leE12.
+rewrite ltn_neqAle (leq_sum_in leE12) andbT (eq_sum_leq_seq leE12).
+rewrite -has_predC; apply: eq_in_has => i ir /=.
+by case Pi: (P i) => //=; rewrite ltn_neqAle leE12 // andbT.
+Qed.
 
 Lemma sumnB I r (P : pred I) (E1 E2 : I -> nat) :
      (forall i, P i -> E1 i <= E2 i) ->
@@ -2844,6 +2925,15 @@ Qed.
 
 Lemma eq_bigmax (I : finType) F : #|I| > 0 -> {i0 : I | \max_i F i = F i0}.
 Proof. by case/(eq_bigmax_cond F) => x _ ->; exists x. Qed.
+
+Lemma eq_bigmax_seq (I : eqType) r (P : pred I) F : has P r ->
+  {i0 | (i0 \in r) && P i0 & \max_(i <- r | P i) F i = F i0}.
+Proof.
+rewrite -size_filter_gt0 => nz; rewrite -big_filter big_tnth.
+pose tPr := tnth (in_tuple (filter P r)).
+have [|i maxE] := eq_bigmax (fun i => F (tPr i)) _; first by rewrite card_ord.
+by exists (tPr i) => //; rewrite andbC -mem_filter mem_tnth.
+Qed.
 
 Lemma expn_sum m I r (P : pred I) F :
   (m ^ (\sum_(i <- r | P i) F i) = \prod_(i <- r | P i) m ^ F i)%N.

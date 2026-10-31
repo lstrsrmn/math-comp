@@ -6,7 +6,6 @@ algebra/countalg.v
 algebra/finalg.v
 algebra/fraction.v
 algebra/intdiv.v
-algebra/interval.v
 algebra/interval_inference.v
 algebra/arithmetic_tactic.v
 algebra/lra.v
@@ -14,7 +13,6 @@ algebra/matrix.v
 algebra/mxalgebra.v
 algebra/mxpoly.v
 algebra/mxred.v
-algebra/numeric_hierarchy/orderedzmod.v
 algebra/numeric_hierarchy/numdomain.v
 algebra/numeric_hierarchy/numfield.v
 algebra/numeric_hierarchy/ssrnum.v
@@ -118,7 +116,17 @@ boot/ssrnotations.v
 boot/tuple.v
 order/all_order.v
 order/preorder.v
+order/porder.v
+order/lattice.v
+order/lattice_instances.v
+order/total_order.v
+order/total_order_instances.v
+order/complemented_lattice.v
+order/complemented_lattice_instances.v
 order/order.v
+order/order_instances.v
+order/interval.v
+order/orderedzmod.v
 ssreflect/all_ssreflect.v
 
 -I .
@@ -136,8 +144,6 @@ ssreflect/all_ssreflect.v
 -arg -w -arg -notation-overridden
 -arg -w -arg -ambiguous-paths
 -arg -w -arg -elpi.add-const-for-axiom-or-sectionvar
-# introduced in MathComp 2.4.0, to be removed in a few versions
--arg -w -arg -mathcomp-subset-itv
 # introduced in Rocq 9.2
 -arg -w -arg +level-tolerance
 -arg -w -arg -notation-for-abbreviation

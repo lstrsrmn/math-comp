@@ -580,7 +580,7 @@ Coercion divalg_closedZ : divalg_closed >-> subalg_closed.
 
 End ClosedExports.
 
-Definition integral_domain_axiom (R : pzRingType) :=
+Definition integral_domain_axiom (R : ringType) :=
   forall x y : R, x * y = 0 -> (x == 0) || (y == 0).
 
 HB.mixin Record ComUnitRing_isIntegral R & ComUnitRing R := {
@@ -1149,6 +1149,7 @@ Proof.
 by move=> x /[!inE] xu; apply: val_inj; rewrite rmorphM rmorph1 /= SubK mulVr.
 Qed.
 Lemma divrr : {in [pred x | val x \is a unit], right_inverse 1 invU *%R}.
+Proof.
 by move=> x /[!inE] xu; apply: val_inj; rewrite rmorphM rmorph1 /= SubK mulrV.
 Qed.
 Lemma unitrP (x y : U) : y * x = 1 /\ x * y = 1 -> val x \is a unit.

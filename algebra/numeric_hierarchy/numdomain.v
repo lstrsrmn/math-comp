@@ -2,7 +2,8 @@
 (* Distributed under the terms of CeCILL-B.                                  *)
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq choice.
-From mathcomp Require Import fintype bigop finset fingroup nmodule order.
+From mathcomp Require Import fintype bigop finset fingroup nmodule preorder.
+From mathcomp Require Import porder lattice total_order total_order_instances.
 From mathcomp Require Import interval rings_modules_and_algebras divalg poly.
 From mathcomp Require Import orderedzmod.
 
@@ -50,7 +51,7 @@ Unset Printing Implicit Defensive.
 
 Local Open Scope ring_scope.
 
-Import Order.TTheory GRing.Theory.
+Import Order.Theory GRing.Theory.
 Import orderedzmod.Num.
 
 Module Num.
@@ -660,7 +661,7 @@ Lemma ler_wpM2r x : 0 <= x -> {homo *%R^~ x : y z / y <= z}.
 Proof. by move=> x_ge0 y z leyz; rewrite ![_ * x]mulrC ler_wpM2l. Qed.
 
 Lemma ler_wnM2l x : x <= 0 -> {homo *%R x : y z /~ y <= z}.
- by move=> x_le0 y z leyz; rewrite -![x * _]mulrNN ler_wpM2l ?lterNE. Qed.
+Proof. by move=> x_le0 y z leyz; rewrite -![x * _]mulrNN ler_wpM2l ?lterNE. Qed.
 
 Lemma ler_wnM2r x : x <= 0 -> {homo *%R^~ x : y z /~ y <= z}.
 Proof. by move=> x_le0 y z leyz; rewrite -![_ * x]mulrNN ler_wpM2r ?lterNE. Qed.
@@ -2486,6 +2487,7 @@ HB.builders Context R & IntegralDomain_isNumRing R.
   Proof. by rewrite lt_def; case: eqVneq => //= ->; rewrite lerr. Qed.
 
   Lemma le_trans : transitive Rle.
+  Proof.
   by move=> y x z; rewrite !le_def' => /predU1P [->|hxy] // /predU1P [<-|hyz];
     rewrite ?hxy ?(lt_trans hxy hyz) orbT.
   Qed.
