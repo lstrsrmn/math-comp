@@ -651,7 +651,105 @@ move=> T; apply/ntensorP=> i; apply/otensor_eqP=> j.
 by rewrite nstackE ostack_eqE mxE.
 Qed.
 
+Definition ntensor_of_matrix (M : 'M_(_, _)) : 'nT[R]_([tuple n; m]) :=
+  nstack (fun i => nstack (fun j => const_t (M i j))).
+
+Definition matrix_of_ntensor (t : 'nT[R]_([tuple n; m])) :
+    'M[R]_(n%:num%R, m%:num%R) :=
+  \matrix_(i, j) tensor_nil (nindex (nindex t i) j).
+
+Lemma ntensor_of_matrixK : cancel ntensor_of_matrix matrix_of_ntensor.
+Proof. by move=> M; apply/matrixP=> i j; rewrite mxE nstackE nstack_eqE. Qed.
+
+Lemma matrix_of_ntensorK : cancel matrix_of_ntensor ntensor_of_matrix.
+Proof.
+move=> T; apply/ntensorP=> i; apply/ntensor_eqP=> j.
+by rewrite nstackE nstack_eqE mxE.
+Qed.
+
+Definition otensor_of_matrix (M : 'M_(_, _)) : 'oT[R]_([tuple n; m]) :=
+  ostack (fun i => ostack (fun j => const_t (M i j))).
+
+Definition matrix_of_otensor (t : 'oT[R]_([tuple n; m])) :
+    'M[R]_(n%:num%R, m%:num%R) :=
+  \matrix_(i, j) tensor_nil (oindex (oindex t i) j).
+
+Lemma otensor_of_matrixK : cancel otensor_of_matrix matrix_of_otensor.
+Proof. by move=> M; apply/matrixP=> i j; rewrite mxE ostackE ostack_eqE. Qed.
+
+Lemma matrix_of_otensorK : cancel matrix_of_otensor otensor_of_matrix.
+Proof.
+move=> T; apply/otensorP=> i; apply/otensor_eqP=> j.
+by rewrite ostackE ostack_eqE mxE.
+Qed.
+
 End TensorMatrix.
+
+(* Coercion from 2d tensors to matrices: matrix operations (most notably the *)
+(* matrix product *m) are then available on tensors of shape                 *)
+(* 'T_([tuple n], [tuple m]), 'nT_([tuple n; m]) and 'oT_([tuple n; m]).      *)
+(* Rocq only allows one coercion path tensor >-> matrix, so the shape is     *)
+(* dispatched during unification by the canonical structures mx_shape (case  *)
+(* analysis on the first contravariant dimension) and mx_tail (case analysis *)
+(* on the second one), keyed on the cons_tuple / nil_tuple constructors that *)
+(* the [tuple ...] notations elaborate to. On a tensor that is not 2d, the   *)
+(* structure inference fails, hence so does the coercion, and the user gets  *)
+(* an ordinary type error.                                                   *)
+
+Structure mx_tail (k l q : nat) := MxTail {
+  mx_tail_u : k.-tuple {posnum nat};
+  mx_tail_d : l.-tuple {posnum nat};
+  mx_tail_mx : forall (R : Type) (n : {posnum nat}),
+    'T[R]_([tuple of n :: mx_tail_u], [tuple of mx_tail_d])
+    -> 'M[R]_(n%:num%R, q)
+}.
+
+Structure mx_shape (k l p q : nat) := MxShape {
+  mx_shape_u : k.-tuple {posnum nat};
+  mx_shape_d : l.-tuple {posnum nat};
+  mx_shape_mx : forall R : Type,
+    'T[R]_([tuple of mx_shape_u], [tuple of mx_shape_d]) -> 'M[R]_(p, q)
+}.
+
+Canonical mx_tail11 (m : {posnum nat}) : mx_tail 0 1 m%:num%R :=
+  @MxTail _ _ _ (nil_tuple _) (cons_tuple m (nil_tuple _))
+    (fun R n => @matrix_of_tensor R n m).
+
+Canonical mx_tail20 (m : {posnum nat}) : mx_tail 1 0 m%:num%R :=
+  @MxTail _ _ _ (cons_tuple m (nil_tuple _)) (nil_tuple _)
+    (fun R n => @matrix_of_ntensor R n m).
+
+Canonical mx_shape_cons k l q (n : {posnum nat}) (t : mx_tail k l q) :
+  mx_shape k.+1 l n%:num%R q :=
+  @MxShape _ _ _ _ (cons_tuple n (mx_tail_u t)) (mx_tail_d t)
+    (fun R => @mx_tail_mx _ _ _ t R n).
+
+Canonical mx_shape02 (n m : {posnum nat}) : mx_shape 0 2 n%:num%R m%:num%R :=
+  @MxShape _ _ _ _ (nil_tuple _) (cons_tuple n (cons_tuple m (nil_tuple _)))
+    (fun R => @matrix_of_otensor R n m).
+
+Definition mx_of_tensor {k l p q} {s : mx_shape k l p q} {R : Type}
+    (t : 'T[R]_([tuple of mx_shape_u s], [tuple of mx_shape_d s])) :
+    'M[R]_(p, q) :=
+  @mx_shape_mx _ _ _ _ s R t.
+
+#[warning="-uniform-inheritance"]
+Coercion mx_of_tensor : tensor >-> matrix.
+
+Lemma mx_of_tensorE {R : Type} {n m : {posnum nat}}
+    (t : 'T[R]_([tuple n], [tuple m])) :
+  mx_of_tensor t = matrix_of_tensor t.
+Proof. by []. Qed.
+
+Lemma mx_of_ntensorE {R : Type} {n m : {posnum nat}}
+    (t : 'nT[R]_([tuple n; m])) :
+  mx_of_tensor t = matrix_of_ntensor t.
+Proof. by []. Qed.
+
+Lemma mx_of_otensorE {R : Type} {n m : {posnum nat}}
+    (t : 'oT[R]_([tuple n; m])) :
+  mx_of_tensor t = matrix_of_otensor t.
+Proof. by []. Qed.
 
 Section TensorProduct.
 Context {R : pzSemiRingType} {R' : pzRingType}.
