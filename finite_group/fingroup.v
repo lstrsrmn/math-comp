@@ -194,6 +194,9 @@ End BaseFinGroup_isGroup.
 #[deprecated(since="mathcomp 2.5.0", use=StarMonoid_isGroup)]
 Notation BaseFinGroup_isGroup G := (StarMonoid_isGroup G) (only parsing).
 
+(** TODO: Move these to more natural locations *)
+HB.structure Definition FinMonoid := {G of Monoid G & Finite G}.
+
 #[arg_sort, short(type="finStarMonoidType")]
 HB.structure Definition FinStarMonoid := { G of StarMonoid G & Finite G }.
 
