@@ -1202,6 +1202,17 @@ HB.instance Definition _ :=
 
 HB.end.
 
+HB.factory Record Monoid_isSubMonoid (M : monoidType) (S : pred M) H
+& Monoid H & SubType M S H := {
+    mvalM_subproof : {morph (val : H -> M) : x y / x * y};
+    mval1_subproof : val (1 : H) = 1;
+  }.
+
+HB.builders Context M S H & Monoid_isSubMonoid M S H.
+  HB.instance Definition _ := isSubMagma.Build M S H mvalM_subproof.
+  HB.instance Definition _ := isSubBaseUMagma.Build M S H mval1_subproof.
+HB.end.
+
 #[short(type="subGroupType")]
 HB.structure Definition SubGroup (G : groupType) S :=
   { H of SubUMagma G S H & Group H}.

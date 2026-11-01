@@ -3,7 +3,7 @@
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq div.
 From mathcomp Require Import choice fintype bigop prime nmodule.
-From mathcomp Require Import rings_modules_and_algebras.
+From mathcomp Require Import rings_modules_and_algebras monoid.
 
 (******************************************************************************)
 (*              Ring-like structures with multiplicative inverse              *)

@@ -571,6 +571,13 @@ Reserved Notation "'{' 'scalar' U '}'" (format "{ 'scalar'  U }").
 Reserved Notation "R ^c" (format "R ^c").
 Reserved Notation "R ^o" (format "R ^o").
 
+(* Compatability between the old mulr definitions and the newly inherited
+monoidal definitions *)
+Notation mulrA := mulgA.
+Notation mulr1 := mulg1.
+Notation mul1r := mul1g.
+Arguments mul {_} a%_ring_scope b%_ring_scope.
+
 Module Export Dummy.
 Module GRing := Algebra.
 End Dummy.
@@ -701,14 +708,11 @@ Bind Scope ring_scope with NzSemiRing.sort.
 End NzSemiRingExports.
 HB.export NzSemiRingExports.
 
-Definition exp (R : baseUMagmaType) x n := iterop n (@mul R) x (@one R).
+Definition exp (R : pzSemiRingType) (x : R) n := iterop n (@mul R) x (@one R).
 Arguments exp : simpl never.
-Definition comm R x y := @mul R x y = mul y x.
-Arguments comm [R] (x y)%_R.
-Definition lreg R x := injective (@mul R x).
-Arguments lreg [R] x%_R.
-Definition rreg R x := injective ((@mul R)^~ x).
-Arguments rreg [R] x%_R.
+Definition comm (R : pzSemiRingType) (x : R) (y : R) := @mul R x y = mul y x.
+Definition lreg (R : pzSemiRingType) (x : R) := injective (@mul R x).
+Definition rreg (R : pzSemiRingType) (x : R) := injective ((@mul R)^~ x).
 
 Local Notation "1" := (@one _) : ring_scope.
 Local Notation "n %:R" := (1 *+ n) : ring_scope.
@@ -720,11 +724,6 @@ Local Notation "\prod_ ( i <- r | P ) F" := (\big[*%R/1]_(i <- r | P) F).
 Local Notation "\prod_ ( i | P ) F" := (\big[*%R/1]_(i | P) F).
 Local Notation "\prod_ ( i 'in' A ) F" := (\big[*%R/1]_(i in A) F).
 Local Notation "\prod_ ( m <= i < n ) F" := (\big[*%R/1%R]_(m <= i < n) F%R).
-
-(* FIXME: These should not be notations **)
-Local Notation mulrA := mulgA.
-Local Notation mulr1 := mulg1.
-Local Notation mul1r := mul1g.
 
 (* The ``field'' characteristic; the definition, and many of the theorems,   *)
 (* has to apply to rings as well; indeed, we need the Frobenius automorphism *)
@@ -844,7 +843,7 @@ Qed.
 
 Lemma exprMn_comm x y n : comm x y -> (x * y) ^+ n = x ^+ n * y ^+ n.
 Proof.
-move=> com_xy; elim: n => /= [|n IHn]; first by rewrite mulr1.
+move=> com_xy; elim: n => [|n IHn]; first by rewrite mulr1.
 by rewrite !exprS IHn !mulrA; congr (_ * _); rewrite -!mulrA -commrX.
 Qed.
 
@@ -951,7 +950,8 @@ Proof. exact: (big_morph _ natrM). Qed.
 Lemma exprDn_comm x y n (cxy : comm x y) :
   (x + y) ^+ n = \sum_(i < n.+1) (x ^+ (n - i) * y ^+ i) *+ 'C(n, i).
 Proof.
-elim: n => [|n IHn]; rewrite big_ord_recl mulr1 ?big_ord0 ?addr0 //=.
+elim: n => [|n IHn]; rewrite big_ord_recl mulr1 ?big_ord0 ?addr0 //.
+rewrite /=.
 rewrite exprS {}IHn /= mulrDl !big_distrr /= big_ord_recl mulr1 subn0.
 rewrite !big_ord_recr /= !binn !subnn !mul1r !subn0 bin0 !exprS -addrA.
 congr (_ + _); rewrite addrA -big_split /=; congr (_ + _).
@@ -1775,7 +1775,7 @@ End LalgebraTheory.
 (* Lifted multiplication. *)
 Section LiftedSemiRing.
 Variables (R : pzSemiRingType) (T : Type).
-Implicit Type f : T -> R.
+Implicit Types (a : R) (f : T -> R) (x : T).
 Definition mull_fun a f x := a * f x.
 Definition mulr_fun a f x := f x * a.
 Definition mul_fun f g x := f x * g x.
@@ -2861,8 +2861,6 @@ Notation linear_closed := linear_closed.
 Notation submod_closed := submod_closed.
 Notation subalg_closed := subalg_closed.
 
-Coercion zmod_closed0D : zmod_closed >-> nmod_closed.
-Coercion zmod_closedN : zmod_closed >-> oppr_closed.
 Coercion semiring_closedD : semiring_closed >-> nmod_closed.
 Coercion semiring_closedM : semiring_closed >-> mulr_closed.
 Coercion smulr_closedM : smulr_closed >-> mulr_closed.

@@ -3,7 +3,7 @@
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq choice.
 From mathcomp Require Import ssrAC generic_quotient nmodule.
-From mathcomp Require Import rings_modules_and_algebras divalg.
+From mathcomp Require Import rings_modules_and_algebras divalg monoid.
 
 (******************************************************************************)
 (*                  Field of fraction of an integral domain                   *)

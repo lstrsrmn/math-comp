@@ -3,6 +3,7 @@
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat div seq.
 From mathcomp Require Import choice fintype finfun bigop prime binomial.
+From mathcomp Require Import monoid.
 From mathcomp Require Export nmodule rings_modules_and_algebras divalg decfield.
 
 (******************************************************************************)
@@ -347,12 +348,12 @@ Notation Lalgebra_isComAlgebra R V :=
   (LSemiAlgebra_isComSemiAlgebra R V) (only parsing).
 
 Module isSubSemiRing.
-#[deprecated(since="mathcomp 2.4.0", use=isSubPzSemiRing.Build)]
-Notation Build R S U := (isSubPzSemiRing.Build R S U) (only parsing).
+#[deprecated(since="mathcomp 2.4.0", use=Monoid_isSubMonoid.Build)]
+Notation Build R S U := (Monoid_isSubMonoid.Build R S U) (only parsing).
 End isSubSemiRing.
 
-#[deprecated(since="mathcomp 2.4.0", use=isSubPzSemiRing)]
-Notation isSubSemiRing R S U := (isSubPzSemiRing R S U) (only parsing).
+#[deprecated(since="mathcomp 2.4.0", use=Monoid_isSubMonoid.Build)]
+Notation isSubSemiRing R S U := (Monoid_isSubMonoid.Build R S U) (only parsing).
 
 Module SubNmodule_isSubSemiRing.
 #[deprecated(since="mathcomp 2.4.0", use=SubNmodule_isSubNzSemiRing.Build)]

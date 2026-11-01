@@ -4,7 +4,7 @@ From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrbool ssrfun eqtype ssrnat seq choice.
 From mathcomp Require Import fintype bigop finset tuple div binomial.
 From mathcomp Require Import nmodule rings_modules_and_algebras divalg decfield.
-From mathcomp Require Import countalg.
+From mathcomp Require Import countalg monoid.
 
 (******************************************************************************)
 (* This file provides a library for univariate polynomials over ring          *)
@@ -464,13 +464,13 @@ Qed.
 Fact mul_1poly : left_id 1%:P mul_poly.
 Proof.
 move=> p; apply/polyP => i; rewrite coef_mul_poly big_ord_recl subn0.
-by rewrite big1 => [j _|]; rewrite coefC !simp.
+by rewrite big1 => [j _|]; rewrite coefC !simp ?mul1r.
 Qed.
 
 Fact mul_poly1 : right_id 1%:P mul_poly.
 Proof.
 move=> p; apply/polyP => i; rewrite coef_mul_poly_rev big_ord_recl subn0.
-by rewrite big1 => [j _|]; rewrite coefC !simp.
+by rewrite big1 => [j _|]; rewrite coefC !simp ?mulr1.
 Qed.
 
 Fact mul_polyDl : left_distributive mul_poly +%R.
@@ -2817,7 +2817,7 @@ Qed.
 Lemma coef0_prod_XsubC (ps : seq R) :
   (\prod_(p <- ps) ('X - p%:P))`_0 = (-1) ^+ (size ps) * \prod_(p <- ps) p.
 Proof.
-rewrite coef_prod_XsubC// subn0; congr GRing.mul.
+rewrite coef_prod_XsubC// subn0; congr mul.
 transitivity (\sum_(I in [set setT : {set 'I_(size ps)}]) \prod_(i in I) ps`_i).
   apply: congr_big =>// i/=.
   apply/idP/set1P => [/eqP cardE | ->]; last by rewrite cardsT card_ord.

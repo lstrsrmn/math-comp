@@ -3,7 +3,7 @@
 From HB Require Import structures.
 From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq choice.
 From mathcomp Require Import bigop nmodule rings_modules_and_algebras divalg.
-From mathcomp Require Import decfield.
+From mathcomp Require Import decfield monoid.
 
 (*****************************************************************************)
 (*     The algebraic part of the algebraic hierarchy for countable types     *)
