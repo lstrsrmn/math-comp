@@ -704,19 +704,27 @@ HB.export NzSemiRingExports.
 Definition exp (R : baseUMagmaType) x n := iterop n (@mul R) x (@one R).
 Arguments exp : simpl never.
 Definition comm R x y := @mul R x y = mul y x.
+Arguments comm [R] (x y)%_R.
 Definition lreg R x := injective (@mul R x).
+Arguments lreg [R] x%_R.
 Definition rreg R x := injective ((@mul R)^~ x).
+Arguments rreg [R] x%_R.
 
 Local Notation "1" := (@one _) : ring_scope.
 Local Notation "n %:R" := (1 *+ n) : ring_scope.
 Local Notation "*%R" := (@mul _) : function_scope.
-Local Notation "x * y" := (mul x y) : ring_scope.
-Local Notation "x ^+ n" := (exp x n) : ring_scope.
+Local Notation "x * y" := (mul x%R y%R) : ring_scope.
+Local Notation "x ^+ n" := (exp x%R n%nat) : ring_scope.
 
 Local Notation "\prod_ ( i <- r | P ) F" := (\big[*%R/1]_(i <- r | P) F).
 Local Notation "\prod_ ( i | P ) F" := (\big[*%R/1]_(i | P) F).
 Local Notation "\prod_ ( i 'in' A ) F" := (\big[*%R/1]_(i in A) F).
 Local Notation "\prod_ ( m <= i < n ) F" := (\big[*%R/1%R]_(m <= i < n) F%R).
+
+(* FIXME: These should not be notations **)
+Local Notation mulrA := mulgA.
+Local Notation mulr1 := mulg1.
+Local Notation mul1r := mul1g.
 
 (* The ``field'' characteristic; the definition, and many of the theorems,   *)
 (* has to apply to rings as well; indeed, we need the Frobenius automorphism *)
@@ -732,11 +740,11 @@ Local Notation "R ^c" := (converse R) : type_scope.
 
 Section PzSemiRingTheory.
 
-Variable R : pzSemiRingType.
-Implicit Types x y : R.
+  Local Open Scope ring_scope.
 
-#[export]
-HB.instance Definition _ := Monoid.isLaw.Build R 1 *%R mulrA mul1r mulr1.
+  Variable R : pzSemiRingType.
+  Implicit Types x y : R.
+
 #[export]
 HB.instance Definition _ := Monoid.isMulLaw.Build R 0 *%R mul0r mulr0.
 #[export]
@@ -775,7 +783,7 @@ Lemma expr0 x : x ^+ 0 = 1. Proof. by []. Qed.
 Lemma expr1 x : x ^+ 1 = x. Proof. by []. Qed.
 Lemma expr2 x : x ^+ 2 = x * x. Proof. by []. Qed.
 
-Lemma exprS x n : x ^+ n.+1 = x * x ^+ n.
+Lemma exprS x n : x ^+ n.+1 = x * (x ^+ n).
 Proof. by case: n => //; rewrite mulr1. Qed.
 
 Lemma expr0n n : 0 ^+ n = (n == 0%N)%:R :> R.
@@ -787,7 +795,7 @@ Proof. by elim: n => // n IHn; rewrite exprS mul1r. Qed.
 Lemma exprD x m n : x ^+ (m + n) = x ^+ m * x ^+ n.
 Proof. by elim: m => [|m IHm]; rewrite ?mul1r // !exprS -mulrA -IHm. Qed.
 
-Lemma exprSr x n : x ^+ n.+1 = x ^+ n * x.
+Lemma exprSr x n : (x ^+ n.+1 = x ^+ n * x)%R.
 Proof. by rewrite -addn1 exprD expr1. Qed.
 
 Lemma expr_sum x (I : Type) (s : seq I) (P : pred I) F :
@@ -828,7 +836,7 @@ Proof. exact: (big_ind _ (commr1 x) (@commrM x)). Qed.
 
 Lemma commr_nat x n : comm x n%:R. Proof. exact/commrMn/commr1. Qed.
 
-Lemma commrX x y n : comm x y -> comm x (y ^+ n).
+Lemma commrX x y n : comm x y -> comm x (y ^+ n)%R.
 Proof.
 rewrite /comm => com_xy.
 by elim: n => [|n IHn]; rewrite ?commr1 // exprS commrM.
@@ -1393,6 +1401,7 @@ End Char2.
 End NzRingTheory.
 
 Section ConverseRing.
+
 #[export]
 HB.instance Definition _ (T : eqType) := Equality.on T^c.
 #[export]
@@ -1682,27 +1691,27 @@ Definition regular R : Type := R.
 Local Notation "R ^o" := (regular R) : type_scope.
 
 Section RegularAlgebra.
-#[export]
-HB.instance Definition _ (V : nmodType) := Nmodule.on V^o.
-#[export]
-HB.instance Definition _ (V : zmodType) := Zmodule.on V^o.
-#[export]
-HB.instance Definition _ (R : pzSemiRingType) := PzSemiRing.on R^o.
-#[export]
-HB.instance Definition _ (R : nzSemiRingType) := NzSemiRing.on R^o.
-#[export]
-HB.instance Definition _ (R : pzSemiRingType) :=
-  @Nmodule_isLSemiModule.Build R R^o
-    mul mulrA mul0r mul1r mulrDr (fun v a b => mulrDl a b v).
-#[export]
-HB.instance Definition _ (R : pzSemiRingType) :=
-  LSemiModule_isLSemiAlgebra.Build R R^o mulrA.
-#[export]
-HB.instance Definition _ (R : nzSemiRingType) := NzSemiRing.on R^o.
-#[export]
-HB.instance Definition _ (R : pzRingType) := PzRing.on R^o.
-#[export]
-HB.instance Definition _ (R : nzRingType) := NzRing.on R^o.
+  #[export]
+    HB.instance Definition _ (V : nmodType) := Nmodule.on V^o.
+  #[export]
+    HB.instance Definition _ (V : zmodType) := Zmodule.on V^o.
+  #[export]
+    HB.instance Definition _ (R : pzSemiRingType) := PzSemiRing.on R^o.
+  #[export]
+    HB.instance Definition _ (R : nzSemiRingType) := NzSemiRing.on R^o.
+  #[export]
+    HB.instance Definition _ (R : pzSemiRingType) :=
+    @Nmodule_isLSemiModule.Build R R^o
+                                       mul mulrA mul0r mul1r mulrDr (fun v a b => mulrDl a b v).
+  #[export]
+    HB.instance Definition _ (R : pzSemiRingType) :=
+    LSemiModule_isLSemiAlgebra.Build R R^o mulrA.
+  #[export]
+    HB.instance Definition _ (R : nzSemiRingType) := NzSemiRing.on R^o.
+  #[export]
+    HB.instance Definition _ (R : pzRingType) := PzRing.on R^o.
+  #[export]
+    HB.instance Definition _ (R : nzRingType) := NzRing.on R^o.
 End RegularAlgebra.
 
 Section LSemiAlgebraTheory.
@@ -1871,10 +1880,6 @@ HB.instance Definition _ := Additive.copy (a \*: f) (f \; *:%R a).
 End ScaleFun.
 
 End AdditiveTheory.
-
-(* FIXME: remove once PzSemiRing extends Monoid. *)
-Definition monoid_morphism (R S : pzSemiRingType) (f : R -> S) : Prop :=
-   (f 1 = 1) * {morph f : x y / x * y}%R.
 
 HB.mixin Record isMonoidMorphism (R S : pzSemiRingType) (f : R -> S) := {
   monoid_morphism_subproof : monoid_morphism f
@@ -3112,27 +3117,22 @@ Proof. exact/subsemialg_closed_subalg/subsemialgClosedP. Qed.
 
 End LalgPred.
 
-HB.mixin Record isSubPzSemiRing (R : pzSemiRingType) (S : pred R) U
-    & SubNmodule R S U & PzSemiRing U := {
-  valM_subproof : monoid_morphism (val : U -> R);
-}.
-
 #[short(type="subPzSemiRingType")]
 HB.structure Definition SubPzSemiRing (R : pzSemiRingType) (S : pred R) :=
-  { U of SubNmodule R S U & PzSemiRing U & isSubPzSemiRing R S U }.
+  { U of SubNmodule R S U & PzSemiRing U & SubMonoid R S U }.
 
 #[short(type="subNzSemiRingType")]
 HB.structure Definition SubNzSemiRing (R : nzSemiRingType) (S : pred R) :=
-  { U of SubNmodule R S U & NzSemiRing U & isSubPzSemiRing R S U }.
+  { U of SubNmodule R S U & NzSemiRing U & SubMonoid R S U }.
 
 Section multiplicative.
 Context (R : pzSemiRingType) (S : pred R) (U : SubPzSemiRing.type S).
 Notation val := (val : U -> R).
 #[export]
-HB.instance Definition _ := isMonoidMorphism.Build U R val valM_subproof.
+HB.instance Definition _ := isMonoidMorphism.Build U R val (val1_subproof, valM_subproof).
 Lemma val1 : val 1 = 1. Proof. exact: rmorph1. Qed.
 Lemma valM : {morph val : x y / x * y}. Proof. exact: rmorphM. Qed.
-Lemma valM1 : monoid_morphism val. Proof. exact: valM_subproof. Qed.
+Lemma valM1 : monoid_morphism val. Proof. exact: (val1_subproof, valM_subproof). Qed.
 End multiplicative.
 
 HB.factory Record SubNmodule_isSubPzSemiRing (R : pzSemiRingType) S U
@@ -3169,9 +3169,14 @@ Proof. by move=> x; apply: val_inj; rewrite SubK val0 mulr0. Qed.
 HB.instance Definition _ := Nmodule_isPzSemiRing.Build U
   mulrA mul1r mulr1 mulrDl mulrDr mul0r mulr0.
 
-Lemma valM : monoid_morphism (val : U -> R).
-Proof. by split=> [|x y] /=; rewrite !SubK. Qed.
-HB.instance Definition _ := isSubPzSemiRing.Build R S U valM.
+Lemma val1 : val (1 : U) = 1.
+Proof. by rewrite SubK. Qed.
+
+Lemma valM : {morph (val : U -> R) : x y / x * y}.
+Proof. by move=> x y /=; rewrite SubK. Qed.
+
+HB.instance Definition _ := isSubMagma.Build R S U valM.
+HB.instance Definition _ := isSubBaseUMagma.Build R S U val1.
 HB.end.
 
 HB.factory Record SubPzSemiRing_isNonZero (R : nzSemiRingType) S U
@@ -4062,13 +4067,13 @@ Definition print (x : Inatmul) : option Number.int :=
   | _ => None
   end.
 
-Arguments GRing.one {_}.
+(* Arguments GRing.one {_}. *)
 Set Warnings "-via-type-remapping,-via-type-mismatch".
 Number Notation Idummy_placeholder parse print (via Inatmul
   mapping [[natmul] => INatmul, [opp] => IOpp, [one] => IOne])
   : ring_scope.
 Set Warnings "via-type-remapping,via-type-mismatch".
-Arguments GRing.one : clear implicits.
+(* Arguments GRing.one : clear implicits. *)
 
 Notation "0" := (@zero _) : ring_scope.
 Notation "-%R" := (@opp _) : ring_scope.
@@ -4188,6 +4193,11 @@ Section FinFunSemiRing.
 
 Variable (aT : finType) (R : pzSemiRingType).
 
+(* FIXME: These should not be notations **)
+Local Notation mulrA := mulgA.
+Local Notation mulr1 := mulg1.
+Local Notation mul1r := mul1g.
+
 Definition ffun_one : {ffun aT -> R} := [ffun => 1].
 Definition ffun_mul (f g : {ffun aT -> R}) := [ffun x => f x * g x].
 
@@ -4207,9 +4217,8 @@ Fact ffun_mul_0r :  right_zero (@ffun_zero _ _) ffun_mul.
 Proof. by move=> f; apply/ffunP=> i; rewrite !ffunE mulr0. Qed.
 
 #[export]
-HB.instance Definition _ := Nmodule_isPzSemiRing.Build {ffun aT -> R}
-  ffun_mulA ffun_mul_1l ffun_mul_1r ffun_mul_addl ffun_mul_addr
-  ffun_mul_0l ffun_mul_0r.
+  HB.instance Definition _ := Monoid_Nmodule_isPzSemiRing.Build {ffun aT -> R}
+    ffun_mul_addl ffun_mul_addr ffun_mul_0l ffun_mul_0r.
 Definition ffun_semiring : pzSemiRingType := {ffun aT -> R}.
 End FinFunSemiRing.
 
@@ -4302,16 +4311,12 @@ Section PairSemiRing.
 
 Variables R1 R2 : pzSemiRingType.
 
+(* FIXME: These should not be notations **)
+Local Notation mulrA := mulgA.
+Local Notation mulr1 := mulg1.
+Local Notation mul1r := mul1g.
+
 Definition mul_pair (x y : R1 * R2) := (x.1 * y.1, x.2 * y.2).
-
-Fact pair_mulA : associative mul_pair.
-Proof. by move=> x y z; congr (_, _); apply: mulrA. Qed.
-
-Fact pair_mul1l : left_id (1, 1) mul_pair.
-Proof. by case=> x1 x2; congr (_, _); apply: mul1r. Qed.
-
-Fact pair_mul1r : right_id (1, 1) mul_pair.
-Proof. by case=> x1 x2; congr (_, _); apply: mulr1. Qed.
 
 Fact pair_mulDl : left_distributive mul_pair +%R.
 Proof. by move=> x y z; congr (_, _); apply: mulrDl. Qed.
@@ -4326,14 +4331,14 @@ Fact pair_mulr0 : right_zero 0 mul_pair.
 Proof. by move=> x; congr (_, _); apply: mulr0. Qed.
 
 #[export]
-HB.instance Definition _ := Nmodule_isPzSemiRing.Build (R1 * R2)%type
-  pair_mulA pair_mul1l pair_mul1r pair_mulDl pair_mulDr pair_mul0r pair_mulr0.
+HB.instance Definition _ := Monoid_Nmodule_isPzSemiRing.Build (R1 * R2)%type
+  pair_mulDl pair_mulDr pair_mul0r pair_mulr0.
 
-Fact fst_is_monoid_morphism : monoid_morphism fst. Proof. by []. Qed.
+Fact fst_is_monoid_morphism : monoid_morphism (@fst R1 R2). Proof. by []. Qed.
 #[export]
 HB.instance Definition _ := isMonoidMorphism.Build (R1 * R2)%type R1 fst
   fst_is_monoid_morphism.
-Fact snd_is_monoid_morphism : monoid_morphism snd. Proof. by []. Qed.
+Fact snd_is_monoid_morphism : monoid_morphism (@snd R1 R2). Proof. by []. Qed.
 #[export]
 HB.instance Definition _ := isMonoidMorphism.Build (R1 * R2)%type R2 snd
   snd_is_monoid_morphism.
