@@ -46,6 +46,28 @@ From mathcomp Require Import sesquilinear matrix interval interval_inference num
 (*                         mirrors castmx                                     *)
 (*         tensor_nil t == the value of the single entry in a                 *)
 (*                         tensor t : 'T_([tuple], [tuple])                   *)
+(*   matrix_of_tensor t == the matrix 'M[R]_(n, m) of the entries of a        *)
+(*                         tensor t : 'T[R]_([tuple n], [tuple m])            *)
+(*  matrix_of_ntensor t == the matrix 'M[R]_(n, m) of the entries of a        *)
+(*                         tensor t : 'nT[R]_([tuple n; m])                   *)
+(*   tensor_of_matrix M, ntensor_of_matrix M ==                               *)
+(*                         the respective inverse operations                  *)
+(*       mx_of_tensor t == the matrix 'M[R]_(n, m) of a tensor t of shape     *)
+(*                         'nT_([tuple n; m]) (the dimensions are inferred by *)
+(*                         the canonical structure mx_shape, and the coercion *)
+(*                         fails on a tensor of another shape);               *)
+(*                         mx_of_tensor is a coercion tensor >-> matrix, so   *)
+(*                         that matrix operations such as *m, ^T, \tr or      *)
+(*                         t i j apply directly to such tensors               *)
+(*       tensor_of_mx M == the tensor of shape 'nT_([tuple n; m]) of the      *)
+(*                         entries of the matrix M : 'M[R]_(n, m), as         *)
+(*                         expected by the context, e.g. (M : 'nT[R]_[2, 3])  *)
+(*                         or (M : 'nT_(_)); tensor_of_mx is a coercion       *)
+(*                         matrix >-> tensor, inverse to mx_of_tensor (lemmas *)
+(*                         mx_of_tensorK and tensor_of_mxK)                   *)
+(*             mx_dim n == structure of the p : {posnum nat} with p%:num = n, *)
+(*                         used to infer the tensor dimensions from the       *)
+(*                         matrix dimensions in the coercions above           *)
 (* Tensors are instances of subType of matrix, and inherit all combinatorial  *)
 (* structures (including finType), as well as nmodType, zmodType,             *)
 (* lSemiModType, lModType, and ring instances where the underlying type       *)
@@ -650,7 +672,157 @@ move=> T; apply/ntensorP=> i; apply/otensor_eqP=> j.
 by rewrite nstackE ostack_eqE mxE.
 Qed.
 
+Definition ntensor_of_matrix (M : 'M_(_, _)) : 'nT[R]_([tuple n; m]) :=
+  nstack (fun i => nstack (fun j => const_t (M i j))).
+
+Definition matrix_of_ntensor (t : 'nT[R]_([tuple n; m])) :
+    'M[R]_(n%:num%R, m%:num%R) :=
+  \matrix_(i, j) tensor_nil (nindex (nindex t i) j).
+
+Lemma ntensor_of_matrixK : cancel ntensor_of_matrix matrix_of_ntensor.
+Proof. by move=> M; apply/matrixP=> i j; rewrite mxE nstackE nstack_eqE. Qed.
+
+Lemma matrix_of_ntensorK : cancel matrix_of_ntensor ntensor_of_matrix.
+Proof.
+move=> T; apply/ntensorP=> i; apply/ntensor_eqP=> j.
+by rewrite nstackE nstack_eqE mxE.
+Qed.
+
 End TensorMatrix.
+
+(* Coercions between tensors of shape 'nT_([tuple n; m]) and matrices: matrix *)
+(* operations (most notably the matrix product *m) are then available on      *)
+(* such tensors, and matrices can be used where such tensors are expected.    *)
+(* The dimensions of a tensor are positive numbers while those of a matrix    *)
+(* are natural numbers, which are related through the structure mx_dim: an    *)
+(* inhabitant of mx_dim n is a p : {posnum nat} such that p%:num = n; its     *)
+(* canonical instance mx_dim_default p : mx_dim p%:num is a default instance  *)
+(* (it matches any p), so that the matrix dimension is checked by conversion  *)
+(* against the one of the tensor once the latter is known (this is what lets  *)
+(* a literal matrix type 'M[R]_(2, 3) be coerced to 'nT[R]_[2, 3]).           *)
+(* The dimensions are inferred during unification by the canonical structure  *)
+(* mx_shape, keyed on the cons_tuple / nil_tuple constructors that the        *)
+(* [tuple ...] notations elaborate to: the instance mx_shape_dim applies when *)
+(* the dimension tuple of the tensor is known (when a tensor is coerced to a  *)
+(* matrix, or when a matrix is coerced to a tensor of a fully given type),    *)
+(* and the instance mx_shape_num applies when only the empty covariant tuple  *)
+(* is known, e.g. for the ascription (M : 'nT_(_)) of a matrix M whose type   *)
+(* is of the form 'M_(n%:num, m%:num) (as is the type of a matrix obtained    *)
+(* from a tensor by the coercion). On a tensor that is not of the above       *)
+(* shape, the structure inference fails, hence so does the coercion, and the  *)
+(* user gets an ordinary type error. When a matrix is coerced to a tensor and *)
+(* the expected tensor type is not known at all, e.g. (M : tensor _ _ _),     *)
+(* mx_shape_dim is also found as a typeclass instance. Beware that, as any    *)
+(* typeclass resolution, this only happens at the end of the elaboration of   *)
+(* the term, and not at all in the ssreflect tactics have, pose, etc., which  *)
+(* abstract the unresolved instances instead.                                 *)
+
+Structure mx_dim (n : nat) := MxDim {
+  mx_dim_pos : {posnum nat};
+  mx_dimE : mx_dim_pos%:num%R = n
+}.
+
+Canonical mx_dim_default (p : {posnum nat}) : mx_dim p%:num%R :=
+  @MxDim _ p erefl.
+
+Existing Class mx_dim.
+#[global] Hint Mode mx_dim ! : typeclass_instances.
+#[global] Existing Instance mx_dim_default.
+#[global] Hint Extern 1 (mx_dim _) =>
+  match goal with |- mx_dim ?n => exact (mx_dim_default n%:posnat) end
+  : typeclass_instances.
+
+Structure mx_shape (p q : nat) := MxShape {
+  mx_shape_u : 2.-tuple {posnum nat};
+  mx_shape_d : 0.-tuple {posnum nat};
+  mx_shape_mx : forall R : Type,
+    'T[R]_([tuple of mx_shape_u], [tuple of mx_shape_d]) -> 'M[R]_(p, q);
+  mx_shape_t : forall R : Type,
+    'M[R]_(p, q) -> 'T[R]_([tuple of mx_shape_u], [tuple of mx_shape_d]);
+  _ : forall R, cancel (@mx_shape_mx R) (@mx_shape_t R);
+  _ : forall R, cancel (@mx_shape_t R) (@mx_shape_mx R)
+}.
+
+Section MxShapeInstances.
+
+Lemma mx_shape_dim_mxK p q (n : mx_dim p) (m : mx_dim q) R :
+  cancel (fun t : 'nT[R]_([tuple mx_dim_pos n; mx_dim_pos m]) =>
+            castmx (mx_dimE n, mx_dimE m) (matrix_of_ntensor t))
+         (fun M => ntensor_of_matrix
+                     (castmx (esym (mx_dimE n), esym (mx_dimE m)) M)).
+Proof.
+case: n m => p' /= e [q' /= e']; case: p / e; case: q / e' => t.
+by rewrite !castmx_id matrix_of_ntensorK.
+Qed.
+
+Lemma mx_shape_dim_tK p q (n : mx_dim p) (m : mx_dim q) R :
+  cancel (fun M : 'M[R]_(p, q) => ntensor_of_matrix
+                     (castmx (esym (mx_dimE n), esym (mx_dimE m)) M))
+         (fun t => castmx (mx_dimE n, mx_dimE m) (matrix_of_ntensor t)).
+Proof.
+case: n m => p' /= e [q' /= e']; case: p / e; case: q / e' => M.
+by rewrite ntensor_of_matrixK !castmx_id.
+Qed.
+
+(* The covariant tuple is written [tuple] rather than nil_tuple _ so that     *)
+(* this instance is not keyed on nil_tuple, which is reserved for the next    *)
+(* one (the two are convertible).                                             *)
+Canonical mx_shape_dim p q (n : mx_dim p) (m : mx_dim q) : mx_shape p q :=
+  @MxShape _ _
+    (cons_tuple (mx_dim_pos n) (cons_tuple (mx_dim_pos m) (nil_tuple _)))
+    [tuple]
+    (fun R t => castmx (mx_dimE n, mx_dimE m) (matrix_of_ntensor t))
+    (fun R M => ntensor_of_matrix
+                  (castmx (esym (mx_dimE n), esym (mx_dimE m)) M))
+    (@mx_shape_dim_mxK p q n m) (@mx_shape_dim_tK p q n m).
+
+(* The instance mx_shape_num n m is convertible to                            *)
+(* mx_shape_dim (mx_dim_default n) (mx_dim_default m).                        *)
+Canonical mx_shape_num (n m : {posnum nat}) : mx_shape n%:num%R m%:num%R :=
+  let s := mx_shape_dim (mx_dim_default n) (mx_dim_default m) in
+  @MxShape _ _ (cons_tuple n (cons_tuple m (nil_tuple _))) (nil_tuple _)
+    (@mx_shape_mx _ _ s) (@mx_shape_t _ _ s)
+    (@mx_shape_dim_mxK _ _ (mx_dim_default n) (mx_dim_default m))
+    (@mx_shape_dim_tK _ _ (mx_dim_default n) (mx_dim_default m)).
+
+End MxShapeInstances.
+
+Existing Class mx_shape.
+#[global] Hint Mode mx_shape ! ! : typeclass_instances.
+#[global] Existing Instance mx_shape_dim.
+
+Definition mx_of_tensor {p q} {s : mx_shape p q} {R : Type}
+    (t : 'T[R]_([tuple of mx_shape_u s], [tuple of mx_shape_d s])) :
+    'M[R]_(p, q) :=
+  @mx_shape_mx _ _ s R t.
+
+Definition tensor_of_mx {p q} {s : mx_shape p q} {R : Type}
+    (M : 'M[R]_(p, q)) :
+    'T[R]_([tuple of mx_shape_u s], [tuple of mx_shape_d s]) :=
+  @mx_shape_t _ _ s R M.
+
+#[warning="-uniform-inheritance"]
+Coercion mx_of_tensor : tensor >-> matrix.
+#[warning="-uniform-inheritance,-ambiguous-paths"]
+Coercion tensor_of_mx : matrix >-> tensor.
+
+Lemma mx_of_tensorK p q (s : mx_shape p q) R :
+  cancel (@mx_of_tensor p q s R) (@tensor_of_mx p q s R).
+Proof. by case: s. Qed.
+
+Lemma tensor_of_mxK p q (s : mx_shape p q) R :
+  cancel (@tensor_of_mx p q s R) (@mx_of_tensor p q s R).
+Proof. by case: s. Qed.
+
+Lemma mx_of_tensorE {R : Type} {n m : {posnum nat}}
+    (t : 'nT[R]_([tuple n; m])) :
+  mx_of_tensor t = matrix_of_ntensor t.
+Proof. by []. Qed.
+
+Lemma tensor_of_mxE {R : Type} {n m : {posnum nat}}
+    (M : 'M[R]_(n%:num%R, m%:num%R)) :
+  (M : 'nT[R]_([tuple n; m])) = ntensor_of_matrix M.
+Proof. by []. Qed.
 
 Section TensorProduct.
 Context {R : semiRingType}.
