@@ -48,6 +48,14 @@ From mathcomp Require Import sesquilinear interval_inference.
 (*                         mirrors castmx                                     *)
 (*         tensor_nil t == the value of the single entry in a                 *)
 (*                         tensor t : 'T_([tuple], [tuple])                   *)
+(*  matrix_of_ntensor t == the matrix 'M[R]_(n, m) of the entries of a        *)
+(*                         tensor t : 'nT[R]_([tuple n; m]); this is a        *)
+(*                         coercion tensor >-> matrix, so that matrix         *)
+(*                         operations such as *m, ^T, \tr or t i j apply      *)
+(*                         directly to such tensors                           *)
+(*  ntensor_of_matrix m == The tensor : 'nT[R]_([tuple n; m]) of the          *)
+(*                         entries of a matrix m : 'M[R]_(n,m); this is a     *)
+(*                         coercion matrix >-> tensor                         *)
 (* Tensors are instances of subType of matrix, and inherit all combinatorial  *)
 (* structures (including finType), as well as nmodType, zmodType,             *)
 (* lSemiModType, lModType, and ring instances where the underlying type       *)
@@ -636,23 +644,28 @@ End TensorTuple.
 Section TensorMatrix.
 Context {R : Type} {n m : {posnum nat}}.
 
-Definition tensor_of_matrix (M : 'M_(_, _)) :
-  'T[R]_([tuple n], [tuple m]) :=
-    nstack (fun i => ostack (fun j => const_t (M i j))).
+Definition ntensor_of_matrix (M : 'M_(_, _)) : 'nT[R]_([tuple n; m]) :=
+  nstack (fun i => nstack (fun j => const_t (M i j))).
 
-Definition matrix_of_tensor t : 'M[R]_(n%:num%R, m%:num%R) :=
-  \matrix_(i, j) tensor_nil (oindex (nindex t i) j).
+Definition matrix_of_ntensor (t : 'nT[R]_([tuple n; m])) :
+    'M[R]_(n%:num%R, m%:num%R) :=
+  \matrix_(i, j) tensor_nil (nindex (nindex t i) j).
 
-Lemma tensor_of_matrixK : cancel tensor_of_matrix matrix_of_tensor.
-Proof. by move=> M; apply/matrixP=> i j; rewrite mxE nstackE ostack_eqE. Qed.
+Lemma ntensor_of_matrixK : cancel ntensor_of_matrix matrix_of_ntensor.
+Proof. by move=> M; apply/matrixP=> i j; rewrite mxE nstackE nstack_eqE. Qed.
 
-Lemma matrix_of_tensorK : cancel matrix_of_tensor tensor_of_matrix.
+Lemma matrix_of_ntensorK : cancel matrix_of_ntensor ntensor_of_matrix.
 Proof.
-move=> T; apply/ntensorP=> i; apply/otensor_eqP=> j.
-by rewrite nstackE ostack_eqE mxE.
+move=> T; apply/ntensorP=> i; apply/ntensor_eqP=> j.
+by rewrite nstackE nstack_eqE mxE.
 Qed.
 
 End TensorMatrix.
+
+#[warning="-uniform-inheritance"]
+Coercion matrix_of_ntensor : tensor >-> matrix.
+#[warning="-uniform-inheritance,-ambiguous-paths"]
+Coercion ntensor_of_matrix : matrix >-> tensor.
 
 Section TensorProduct.
 Context {R : semiRingType}.
